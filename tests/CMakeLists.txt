@@ -1,0 +1,18 @@
+function(faxwerk_add_test name)
+    cmake_parse_arguments(ARG "" "TIMEOUT" "SOURCES" ${ARGN})
+    add_executable(${name} ${name}.cpp ${ARG_SOURCES})
+    target_link_libraries(${name} PRIVATE faxwerk_core Qt6::Test TIFF::TIFF)
+    target_compile_definitions(${name} PRIVATE QT_NO_CAST_FROM_ASCII)
+    faxwerk_set_warnings(${name})
+    add_test(NAME ${name} COMMAND ${name})
+    if(NOT ARG_TIMEOUT)
+        set(ARG_TIMEOUT 120)
+    endif()
+    set_tests_properties(${name} PROPERTIES
+        TIMEOUT ${ARG_TIMEOUT}
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endfunction()
+
+faxwerk_add_test(tst_sipmessage)
+faxwerk_add_test(tst_digestauth)
+faxwerk_add_test(tst_sdp)

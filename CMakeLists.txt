@@ -45,6 +45,11 @@ endfunction()
 add_subdirectory(src/core)
 add_subdirectory(src/cli)
 
+if(FAXWERK_BUILD_TESTS)
+    enable_testing()
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_subdirectory(tests)
+endif()
 
 message(STATUS "Product name:   ${FAXWERK_PRODUCT_NAME}")
 message(STATUS "spandsp:        ${SpanDSP_LIBRARY} (version ${SpanDSP_VERSION})")
