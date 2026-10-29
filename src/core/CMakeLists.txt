@@ -18,6 +18,8 @@ add_library(faxwerk_core STATIC
     sip/Sdp.h
     sip/SipMessage.cpp
     sip/SipMessage.h
+    sip/SipUserAgent.cpp
+    sip/SipUserAgent.h
 )
 
 target_include_directories(faxwerk_core PUBLIC
