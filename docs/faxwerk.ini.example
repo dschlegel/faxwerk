@@ -1,0 +1,29 @@
+; Faxwerk configuration (QSettings INI format).
+;
+; Default location:
+;   Linux:   ~/.config/Faxwerk/faxwerk.ini
+;   macOS:   ~/.config/Faxwerk/faxwerk.ini
+;   Windows: %APPDATA%\Faxwerk\faxwerk.ini
+; or pass --config <file>. Command line options override these values.
+
+[sip]
+server=fritz.box
+port=5060
+; domain=fritz.box
+user=faxwerk620
+; auth_user=
+; Prefer the FAXWERK_PASSWORD environment variable over storing it here.
+; password=
+; local_port=5070
+; display_name=Fax
+expires=600
+
+[fax]
+ident=+49 30 1234567
+header=Example Ltd.
+max_rate=9600
+ecm=true
+dither=false
+
+[job]
+timeout=900
