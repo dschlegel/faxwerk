@@ -1,0 +1,27 @@
+configure_file(ProductInfo.h.in "${CMAKE_CURRENT_BINARY_DIR}/ProductInfo.h" @ONLY)
+
+add_library(faxwerk_core STATIC
+    sip/SipMessage.cpp
+    sip/SipMessage.h
+)
+
+target_include_directories(faxwerk_core PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_BINARY_DIR}")
+
+target_link_libraries(faxwerk_core
+    PUBLIC
+        Qt6::Core
+        Qt6::Network
+        Qt6::Gui
+        Qt6::Pdf
+    PRIVATE
+        SpanDSP::SpanDSP
+        TIFF::TIFF)
+
+target_compile_definitions(faxwerk_core PRIVATE
+    FAXWERK_SPANDSP_NEW_API=$<BOOL:${FAXWERK_SPANDSP_NEW_API}>
+    FAXWERK_SPANDSP_LOG_USER_DATA=$<BOOL:${FAXWERK_SPANDSP_LOG_USER_DATA}>
+    QT_NO_CAST_FROM_ASCII)
+
+faxwerk_set_warnings(faxwerk_core)
