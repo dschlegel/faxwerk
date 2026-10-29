@@ -1,6 +1,8 @@
 configure_file(ProductInfo.h.in "${CMAKE_CURRENT_BINARY_DIR}/ProductInfo.h" @ONLY)
 
 add_library(faxwerk_core STATIC
+    fax/FaxEngine.cpp
+    fax/FaxEngine.h
     rtp/AudioPort.h
     rtp/G711.cpp
     rtp/G711.h
