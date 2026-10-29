@@ -1,0 +1,25 @@
+{
+  "name": "Faxwerk (Ubuntu 24.04, Qt 6, spandsp)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  // Host networking lets SIP/RTP reach the router in the LAN and receive
+  // its replies (only effective with a Linux Docker host).
+  "runArgs": ["--network=host"],
+  "remoteUser": "ubuntu",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+      ],
+      "settings": {
+        "cmake.generator": "Ninja",
+        "cmake.buildDirectory": "${workspaceFolder}/build/devcontainer"
+      }
+    }
+  }
+}
