@@ -1,6 +1,8 @@
 configure_file(ProductInfo.h.in "${CMAKE_CURRENT_BINARY_DIR}/ProductInfo.h" @ONLY)
 
 add_library(faxwerk_core STATIC
+    FaxJob.cpp
+    FaxJob.h
     document/FaxTiff.cpp
     document/FaxTiff.h
     document/PdfRasterizer.cpp
@@ -20,6 +22,10 @@ add_library(faxwerk_core STATIC
     sip/SipMessage.h
     sip/SipUserAgent.cpp
     sip/SipUserAgent.h
+    transport/FaxTransport.cpp
+    transport/FaxTransport.h
+    transport/SipG711Transport.cpp
+    transport/SipG711Transport.h
 )
 
 target_include_directories(faxwerk_core PUBLIC
