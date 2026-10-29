@@ -43,6 +43,7 @@ function(faxwerk_set_warnings target)
 endfunction()
 
 add_subdirectory(src/core)
+add_subdirectory(src/cli)
 
 
 message(STATUS "Product name:   ${FAXWERK_PRODUCT_NAME}")
