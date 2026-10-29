@@ -1,6 +1,8 @@
 configure_file(ProductInfo.h.in "${CMAKE_CURRENT_BINARY_DIR}/ProductInfo.h" @ONLY)
 
 add_library(faxwerk_core STATIC
+    sip/DigestAuth.cpp
+    sip/DigestAuth.h
     sip/SipMessage.cpp
     sip/SipMessage.h
 )
