@@ -110,4 +110,9 @@ QString pagesText(int pages)
     return pages == 1 ? QStringLiteral("1 Seite") : QStringLiteral("%1 Seiten").arg(pages);
 }
 
+QString contactCountText(qsizetype contacts)
+{
+    return contacts == 1 ? QStringLiteral("1 Nummer") : QStringLiteral("%1 Nummern").arg(contacts);
+}
+
 } // namespace faxwerk::gui

@@ -5,8 +5,11 @@
 
 #include "document/PdfRasterizer.h"
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QCompleter>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -15,10 +18,13 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMimeData>
+#include <QPainter>
 #include <QPushButton>
 #include <QRegularExpressionValidator>
 #include <QScrollArea>
+#include <QStandardItemModel>
 #include <QStandardPaths>
+#include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -32,6 +38,47 @@ QLabel *makeLabel(const QString &text, const char *role)
     label->setProperty("role", QString::fromLatin1(role));
     return label;
 }
+
+constexpr int kMaxSuggestions = 8;
+constexpr int kNameRole = Qt::UserRole + 1;
+constexpr int kNumberRole = Qt::UserRole + 2;
+constexpr int kDetailRole = Qt::UserRole + 3;
+
+// Suggestion row: the name, below it the number, its type and the router.
+class ContactDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        painter->save();
+        const bool selected = option.state & QStyle::State_Selected;
+        if (selected)
+            painter->fillRect(option.rect, QColor(0xf5, 0xec, 0xf2));
+        const QRect text = option.rect.adjusted(14, 7, -14, -7);
+        QFont nameFont = option.font;
+        nameFont.setWeight(QFont::Medium);
+        painter->setFont(nameFont);
+        painter->setPen(QColor(0x1f, 0x1d, 0x24));
+        const QString name = index.data(kNameRole).toString();
+        painter->drawText(text, Qt::AlignLeft | Qt::AlignTop,
+                          QFontMetrics(nameFont).elidedText(name, Qt::ElideRight, text.width()));
+        QFont detailFont = option.font;
+        detailFont.setPixelSize(13);
+        painter->setFont(detailFont);
+        painter->setPen(QColor(0x6b, 0x60, 0x75));
+        painter->drawText(text, Qt::AlignLeft | Qt::AlignBottom,
+                          QFontMetrics(detailFont).elidedText(index.data(kDetailRole).toString(), Qt::ElideRight,
+                                                             text.width()));
+        painter->restore();
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        return QSize(QStyledItemDelegate::sizeHint(option, index).width(), 52);
+    }
+};
 
 QStringList pdfsFrom(const QMimeData *mime)
 {
@@ -153,6 +200,22 @@ ComposePage::ComposePage(QWidget *parent)
     right->setContentsMargins(26, 26, 26, 26);
     right->setSpacing(10);
 
+    m_locationRow = new QWidget;
+    auto *locationLayout = new QVBoxLayout(m_locationRow);
+    locationLayout->setContentsMargins(0, 0, 0, 10);
+    locationLayout->setSpacing(6);
+    m_location = new QComboBox;
+    m_location->setAccessibleName(QStringLiteral("Senden über"));
+    auto *locationLabel = makeLabel(QStringLiteral("Senden über"), "fieldLabel");
+    locationLabel->setBuddy(m_location);
+    locationLayout->addWidget(locationLabel);
+    locationLayout->addWidget(m_location);
+    m_locationHint = makeLabel(QString(), "muted");
+    m_locationHint->hide();
+    locationLayout->addWidget(m_locationHint);
+    m_locationRow->hide();
+    right->addWidget(m_locationRow);
+
     right->addWidget(makeLabel(QStringLiteral("Empfänger"), "fieldLabel"));
     m_destination = new QLineEdit;
     m_destination->setObjectName(QStringLiteral("destination"));
@@ -165,6 +228,31 @@ ComposePage::ComposePage(QWidget *parent)
     m_name->setPlaceholderText(QStringLiteral("Name, z. B. Praxis Dr. Berger (optional)"));
     m_name->setAccessibleName(QStringLiteral("Name des Empfängers"));
     right->addWidget(m_name);
+    m_saveContact = new QPushButton(QStringLiteral("Als Kontakt speichern"));
+    m_saveContact->setToolTip(QStringLiteral("Im Telefonbuch der FRITZ!Box speichern"));
+    m_saveContact->setProperty("role", QStringLiteral("link"));
+    m_saveContact->hide();
+    right->addWidget(m_saveContact, 0, Qt::AlignLeft);
+
+    // Phonebook suggestions for both fields; choosing one fills in both.
+    m_suggestions = new QStandardItemModel(this);
+    for (auto [edit, role] : {std::pair{m_destination, kNumberRole}, std::pair{m_name, kNameRole}}) {
+        auto *completer = new QCompleter(m_suggestions, this);
+        completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+        completer->setCompletionRole(role);
+        completer->setMaxVisibleItems(kMaxSuggestions);
+        completer->setWidget(edit);
+        auto *popup = completer->popup();
+        popup->setObjectName(QStringLiteral("contactPopup"));
+        popup->setItemDelegate(new ContactDelegate(popup));
+        connect(edit, &QLineEdit::textEdited, this, [this, completer](const QString &text) { suggest(completer, text); });
+        connect(completer, qOverload<const QModelIndex &>(&QCompleter::activated), this, [this](const QModelIndex &index) {
+            m_destination->setText(index.data(kNumberRole).toString());
+            m_name->setText(index.data(kNameRole).toString());
+            m_destination->setFocus();
+        });
+        (edit == m_destination ? m_numberCompleter : m_nameCompleter) = completer;
+    }
 
     right->addSpacing(8);
     m_recentTitle = makeLabel(QStringLiteral("Zuletzt verwendet"), "muted");
@@ -218,12 +306,22 @@ ComposePage::ComposePage(QWidget *parent)
             renderPreview();
     });
     connect(m_destination, &QLineEdit::textChanged, this, &ComposePage::updateSendButton);
+    connect(m_destination, &QLineEdit::textChanged, this, &ComposePage::updateSaveContact);
+    connect(m_name, &QLineEdit::textChanged, this, &ComposePage::updateSaveContact);
+    connect(m_saveContact, &QPushButton::clicked, this, [this] {
+        emit saveContactRequested(m_name->text().trimmed(), m_destination->text().trimmed());
+    });
     connect(m_destination, &QLineEdit::returnPressed, m_send, &QPushButton::click);
     connect(m_disclosure, &QToolButton::toggled, this, [this](bool open) {
         m_disclosure->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
         m_senderBox->setVisible(open);
     });
     connect(changeSettings, &QPushButton::clicked, this, &ComposePage::settingsRequested);
+    connect(m_location, &QComboBox::currentIndexChanged, this,
+            [this] {
+                m_locationHint->setVisible(m_location->currentIndex() == 0 && !m_locationHint->text().isEmpty());
+                emit locationChanged(selectedLocationId());
+            });
     connect(m_send, &QPushButton::clicked, this, [this] {
         if (!m_send->isEnabled())
             return;
@@ -233,6 +331,7 @@ ComposePage::ComposePage(QWidget *parent)
         request.documents = m_documents;
         request.dither = m_dither->isChecked();
         request.pages = int(m_thumbnails.size());
+        request.locationId = selectedLocationId();
         emit sendRequested(request);
     });
 
@@ -258,7 +357,16 @@ void ComposePage::load(const SendRequest &request)
         m_dither->setChecked(request.dither);
     }
     m_documents = request.documents;
+    const int location = m_location->findData(request.locationId);
+    if (location >= 0)
+        m_location->setCurrentIndex(location);
     renderPreview();
+}
+
+void ComposePage::setRecipient(const QString &name, const QString &number)
+{
+    m_destination->setText(number);
+    m_name->setText(name);
 }
 
 void ComposePage::clear()
@@ -267,6 +375,48 @@ void ComposePage::clear()
     m_name->clear();
     m_documents.clear();
     renderPreview();
+}
+
+void ComposePage::setContacts(const QList<Contact> &contacts, bool canSave)
+{
+    m_contacts = contacts;
+    m_canSaveContacts = canSave;
+    updateSaveContact();
+}
+
+void ComposePage::suggest(QCompleter *completer, const QString &text)
+{
+    const QList<Contact> found = text.trimmed().size() >= 2 ? searchContacts(m_contacts, text, kMaxSuggestions)
+                                                            : QList<Contact>();
+    m_suggestions->clear();
+    for (const Contact &contact : found) {
+        auto *item = new QStandardItem;
+        item->setData(contact.name.isEmpty() ? contact.number : contact.name, kNameRole);
+        item->setData(contact.number, kNumberRole);
+        QStringList detail{contact.number, contact.typeLabel()};
+        if (!contact.locationName.isEmpty())
+            detail.append(contact.locationName);
+        item->setData(detail.join(QStringLiteral(" · ")), kDetailRole);
+        m_suggestions->appendRow(item);
+    }
+    if (found.isEmpty())
+        completer->popup()->hide();
+    else
+        completer->complete();
+}
+
+void ComposePage::updateSaveContact()
+{
+    const QString number = comparableNumber(m_destination->text());
+    bool known = false;
+    for (const Contact &contact : std::as_const(m_contacts)) {
+        if (comparableNumber(contact.number) == number) {
+            known = true;
+            break;
+        }
+    }
+    m_saveContact->setVisible(m_canSaveContacts && number.size() >= 3 && !m_name->text().trimmed().isEmpty()
+                              && !known);
 }
 
 void ComposePage::setRecentRecipients(const QList<Recipient> &recipients)
@@ -295,6 +445,33 @@ void ComposePage::setRecentRecipients(const QList<Recipient> &recipients)
 void ComposePage::setSenderSummary(const QString &summary)
 {
     m_senderSummary->setText(summary);
+}
+
+void ComposePage::setLocations(const QList<Location> &locations, const QString &selectedId)
+{
+    {
+        const QSignalBlocker blocker(m_location);
+        m_location->clear();
+        m_location->addItem(QStringLiteral("Automatisch"), QString());
+        for (const Location &location : locations)
+            m_location->addItem(location.displayName(), location.id);
+        const int index = m_location->findData(selectedId);
+        m_location->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    m_locationHint->setVisible(m_location->currentIndex() == 0 && !m_locationHint->text().isEmpty());
+    m_locationRow->setVisible(locations.size() > 1);
+    emit locationChanged(selectedLocationId());
+}
+
+void ComposePage::setAutoLocationHint(const QString &hint)
+{
+    m_locationHint->setText(hint);
+    m_locationHint->setVisible(m_location->currentIndex() == 0 && !hint.isEmpty());
+}
+
+QString ComposePage::selectedLocationId() const
+{
+    return m_location->currentData().toString();
 }
 
 void ComposePage::setDitherDefault(bool dither)

@@ -25,4 +25,8 @@ faxwerk_add_test(tst_endtoend SOURCES MockFritzBox.cpp MockFritzBox.h TestDocume
 if(FAXWERK_BUILD_GUI)
     faxwerk_add_test(tst_guilogic)
     target_link_libraries(tst_guilogic PRIVATE faxwerk_gui_lib)
+    faxwerk_add_test(tst_locationprobe SOURCES MockFritzBox.cpp MockFritzBox.h)
+    target_link_libraries(tst_locationprobe PRIVATE faxwerk_gui_lib)
+    faxwerk_add_test(tst_contacts)
+    target_link_libraries(tst_contacts PRIVATE faxwerk_gui_lib)
 endif()

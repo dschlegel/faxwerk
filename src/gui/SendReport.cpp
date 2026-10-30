@@ -68,6 +68,7 @@ bool writeSendReport(const JournalEntry &entry, const QString &path, QString *er
     const QList<QPair<QString, QString>> rows = {
         {QStringLiteral("Empfänger"), entry.recipientName.isEmpty() ? QStringLiteral("–") : entry.recipientName},
         {QStringLiteral("Faxnummer"), entry.destination},
+        {QStringLiteral("Gesendet über"), entry.location.isEmpty() ? QStringLiteral("–") : entry.location},
         {QStringLiteral("Zeitpunkt"), entry.time.toString(QStringLiteral("dd.MM.yyyy, HH:mm:ss"))},
         {QStringLiteral("Dokumente"), documents.join(QStringLiteral(", "))},
         {QStringLiteral("Seiten"), QStringLiteral("%1 von %2 übertragen").arg(entry.pagesTransferred).arg(entry.pages)},

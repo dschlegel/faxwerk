@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AppSettings.h"
+#include "Contacts.h"
 
 #include <QTimer>
 #include <QWidget>
@@ -20,8 +21,11 @@ class SipUserAgent;
 
 namespace faxwerk::gui {
 
-// Screen D: two-step assistant. Step 1 connects to the router (with a
-// registration check), step 2 sets the sender details.
+class FritzPhonebook;
+
+// Screen D: three-step assistant. Step 1 edits the locations (router
+// credentials with a registration check, sender details), step 2 the
+// optional FRITZ!Box user for the phonebook, step 3 the transfer options.
 class SetupPage : public QWidget
 {
     Q_OBJECT
@@ -34,35 +38,64 @@ public:
 
 signals:
     void saved(const faxwerk::gui::AppSettings &settings);
-    void connectionChecked(bool ok, const QString &server);
+    void connectionChecked(bool ok, const QString &locationId);
     void cancelled();
+    // The phonebook check read the phonebooks of a location.
+    void phonebookRead(const QString &locationId, const QList<faxwerk::gui::Contact> &contacts);
 
 private:
     void showStep(int step);
+    void storeForm();
+    void loadForm(int index);
+    void refreshLocationBox();
+    void addLocation();
+    void removeLocation();
+    bool validateLocations();
     void checkConnection();
     void finishCheck(bool ok, const QString &message);
     void updateButtons();
-    AppSettings collect() const;
+    void storeBookForm();
+    void loadBookForm(int index);
+    void checkPhonebook();
+    AppSettings collect();
 
     AppSettings m_base;
+    QList<Location> m_locations;
+    int m_current = -1;
     std::unique_ptr<SipUserAgent> m_ua;
+    QString m_checkingId;
     QTimer m_checkTimeout;
 
-    QPushButton *m_stepPills[2] = {};
+    QPushButton *m_stepPills[3] = {};
     QLabel *m_helpTitle = nullptr;
     QLabel *m_helpText = nullptr;
     QStackedWidget *m_steps = nullptr;
 
+    QComboBox *m_locationBox = nullptr;
+    QPushButton *m_addLocation = nullptr;
+    QPushButton *m_removeLocation = nullptr;
+    QLineEdit *m_name = nullptr;
     QLineEdit *m_server = nullptr;
     QLineEdit *m_user = nullptr;
     QLineEdit *m_password = nullptr;
+    QLineEdit *m_header = nullptr;
+    QLineEdit *m_ident = nullptr;
     QLabel *m_checkResult = nullptr;
     QPushButton *m_check = nullptr;
     QPushButton *m_next = nullptr;
     QPushButton *m_cancel = nullptr;
 
-    QLineEdit *m_header = nullptr;
-    QLineEdit *m_ident = nullptr;
+    int m_bookCurrent = -1;
+    FritzPhonebook *m_phonebook = nullptr;
+    QString m_bookCheckingId;
+    QWidget *m_bookLocationRow = nullptr;
+    QComboBox *m_bookLocation = nullptr;
+    QLineEdit *m_bookUser = nullptr;
+    QLineEdit *m_bookPassword = nullptr;
+    QLabel *m_bookResult = nullptr;
+    QPushButton *m_bookCheck = nullptr;
+
+    QCheckBox *m_autoSelect = nullptr;
     QComboBox *m_rate = nullptr;
     QCheckBox *m_ecm = nullptr;
     QCheckBox *m_dither = nullptr;

@@ -17,6 +17,7 @@ struct JournalEntry
     QDateTime time;
     QString destination;   // number as dialed
     QString recipientName; // optional label typed by the user
+    QString location;      // name of the location the fax went through
     QStringList documents; // absolute PDF paths
     int pages = 0;
     FaxStatus status = FaxStatus::InternalError;

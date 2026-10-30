@@ -1,3 +1,4 @@
+#include "AppSettings.h"
 #include "Journal.h"
 #include "Messages.h"
 
@@ -22,6 +23,8 @@ private slots:
     void formatDuration();
     void journalRoundtrip();
     void recentRecipients();
+    void settingsRoundtrip();
+    void settingsFromCommandLineConfig();
 };
 
 void TestGuiLogic::normalizeNumber_data()
@@ -167,6 +170,81 @@ void TestGuiLogic::recentRecipients()
     QCOMPARE(recent.at(1).number, QStringLiteral("111"));
     QCOMPARE(recent.at(1).name, QStringLiteral("A neu"));
     QCOMPARE(journal.recentRecipients(10).size(), 3);
+}
+
+void TestGuiLogic::settingsRoundtrip()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("faxwerk.ini"));
+
+    AppSettings settings;
+    Location freiburg = AppSettings::newLocation(QStringLiteral("Freiburg"));
+    freiburg.server = QStringLiteral("192.168.10.1");
+    freiburg.user = QStringLiteral("faxwerk620");
+    freiburg.password = QStringLiteral("eins");
+    freiburg.ident = QStringLiteral("+49 761 1234567");
+    freiburg.header = QStringLiteral("Praxis Freiburg");
+    freiburg.phonebookUser = QStringLiteral("telefonbuch");
+    freiburg.phonebookPassword = QStringLiteral("drei");
+    Location offenburg = AppSettings::newLocation(QStringLiteral("Offenburg"));
+    offenburg.server = QStringLiteral("192.168.20.1");
+    offenburg.port = 5070;
+    offenburg.user = QStringLiteral("faxwerk621");
+    offenburg.password = QStringLiteral("zwei");
+    settings.locations = {freiburg, offenburg};
+    settings.autoSelect = false;
+    settings.preferredId = offenburg.id;
+    settings.maxRate = 14400;
+    settings.ecm = false;
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        settings.save(ini);
+    }
+
+    QSettings ini(path, QSettings::IniFormat);
+    const AppSettings loaded = AppSettings::load(ini);
+    QCOMPARE(loaded.locations.size(), 2);
+    QCOMPARE(loaded.locations.at(0).id, freiburg.id);
+    QCOMPARE(loaded.locations.at(0).name, QStringLiteral("Freiburg"));
+    QCOMPARE(loaded.locations.at(0).header, QStringLiteral("Praxis Freiburg"));
+    QCOMPARE(loaded.locations.at(1).server, QStringLiteral("192.168.20.1"));
+    QCOMPARE(loaded.locations.at(1).port, quint16(5070));
+    QCOMPARE(loaded.locations.at(1).password, QStringLiteral("zwei"));
+    QCOMPARE(loaded.locations.at(0).phonebookUser, QStringLiteral("telefonbuch"));
+    QCOMPARE(loaded.locations.at(0).phonebookPassword, QStringLiteral("drei"));
+    QVERIFY(loaded.locations.at(0).hasPhonebook());
+    QVERIFY(!loaded.locations.at(1).hasPhonebook());
+    QVERIFY(!loaded.autoSelect);
+    QCOMPARE(loaded.preferredId, offenburg.id);
+    QCOMPARE(loaded.maxRate, 14400);
+    QVERIFY(!loaded.ecm);
+    QVERIFY(loaded.isConfigured());
+
+    // The command line tool reads the first location from [sip] and [fax].
+    QCOMPARE(ini.value(QStringLiteral("sip/server")).toString(), QStringLiteral("192.168.10.1"));
+    QCOMPARE(ini.value(QStringLiteral("sip/user")).toString(), QStringLiteral("faxwerk620"));
+    QCOMPARE(ini.value(QStringLiteral("fax/ident")).toString(), QStringLiteral("+49 761 1234567"));
+}
+
+void TestGuiLogic::settingsFromCommandLineConfig()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("faxwerk.ini"));
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        ini.setValue(QStringLiteral("sip/server"), QStringLiteral("fritz.box"));
+        ini.setValue(QStringLiteral("sip/user"), QStringLiteral("faxwerk620"));
+        ini.setValue(QStringLiteral("sip/password"), QStringLiteral("geheim"));
+        ini.setValue(QStringLiteral("fax/header"), QStringLiteral("Example Ltd."));
+    }
+    QSettings ini(path, QSettings::IniFormat);
+    const AppSettings loaded = AppSettings::load(ini);
+    QCOMPARE(loaded.locations.size(), 1);
+    QCOMPARE(loaded.locations.first().server, QStringLiteral("fritz.box"));
+    QCOMPARE(loaded.locations.first().user, QStringLiteral("faxwerk620"));
+    QCOMPARE(loaded.locations.first().header, QStringLiteral("Example Ltd."));
+    QVERIFY(!loaded.locations.first().id.isEmpty());
+    QVERIFY(loaded.autoSelect);
 }
 
 QTEST_GUILESS_MAIN(TestGuiLogic)

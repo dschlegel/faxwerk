@@ -214,8 +214,9 @@ void JournalPage::rebuild()
     QListWidgetItem *selected = nullptr;
     for (const JournalEntry &entry : m_journal->entries()) {
         if (!filter.isEmpty()) {
-            const QString haystack = QStringLiteral("%1 %2 %3").arg(
-                entry.recipientName, entry.destination, fileNames(entry.documents).join(QLatin1Char(' ')));
+            const QString haystack = QStringLiteral("%1 %2 %3 %4").arg(
+                entry.recipientName, entry.destination, fileNames(entry.documents).join(QLatin1Char(' ')),
+                entry.location);
             if (!haystack.contains(filter, Qt::CaseInsensitive))
                 continue;
         }
@@ -257,7 +258,7 @@ void JournalPage::showDetails(const QString &id)
         delete item->widget();
         delete item;
     }
-    const QList<QPair<QString, QString>> facts = {
+    QList<QPair<QString, QString>> facts = {
         {QStringLiteral("Nummer"), entry->destination},
         {QStringLiteral("Seiten"), QStringLiteral("%1 von %2").arg(entry->pagesTransferred).arg(entry->pages)},
         {QStringLiteral("Dokument"), fileNames(entry->documents).join(QStringLiteral(", "))},
@@ -266,6 +267,8 @@ void JournalPage::showDetails(const QString &id)
          entry->bitRate > 0 ? QStringLiteral("%1 bit/s").arg(entry->bitRate) : QStringLiteral("–")},
         {QStringLiteral("Gegenstelle"), entry->remoteIdent.isEmpty() ? QStringLiteral("–") : entry->remoteIdent},
     };
+    if (!entry->location.isEmpty())
+        facts.insert(1, {QStringLiteral("Standort"), entry->location});
     for (int i = 0; i < facts.size(); ++i) {
         auto *cell = new QWidget;
         auto *cellLayout = new QVBoxLayout(cell);

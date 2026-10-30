@@ -153,7 +153,7 @@ SendingPage::SendingPage(QWidget *parent)
     connect(m_journal, &QPushButton::clicked, this, &SendingPage::journalRequested);
 }
 
-void SendingPage::attach(FaxJob *job, const QString &recipient, const QString &number, int pages)
+void SendingPage::begin(const QString &recipient, const QString &number, int pages)
 {
     m_pages = pages;
     m_done = 0;
@@ -184,7 +184,20 @@ void SendingPage::attach(FaxJob *job, const QString &recipient, const QString &n
     m_elapsed.start();
     m_clock.start();
     updateElapsed();
+}
 
+void SendingPage::showSearching()
+{
+    m_headline->setText(QStringLiteral("Standort suchen"));
+    m_steps->setState(StepRegister, StepList::State::Active);
+    m_steps->setDetail(StepRegister, QStringLiteral("Welche FRITZ!Box ist erreichbar?"));
+    m_activeStep = StepRegister;
+}
+
+void SendingPage::attach(FaxJob *job, const QString &location)
+{
+    if (!location.isEmpty())
+        m_steps->setDetail(StepRegister, QStringLiteral("Standort %1").arg(location));
     connect(job, &FaxJob::phaseChanged, this, &SendingPage::onPhase);
     connect(job, &FaxJob::pageTransferred, this, &SendingPage::onPages);
     connect(job, &FaxJob::negotiated, this, [this](int bitRate, bool ecm, const QString &) {
@@ -194,6 +207,11 @@ void SendingPage::attach(FaxJob *job, const QString &recipient, const QString &n
                                                     : QStringLiteral("ohne Fehlerkorrektur")));
     });
     connect(job, &FaxJob::finished, this, &SendingPage::onFinished);
+}
+
+void SendingPage::showFailure(const OutcomeText &text, const QString &technical)
+{
+    showResult(false, text, technical, 0);
 }
 
 void SendingPage::onPhase(FaxPhase phase)
@@ -245,15 +263,19 @@ void SendingPage::onPages(int done, int total)
 
 void SendingPage::onFinished(const FaxOutcome &outcome)
 {
+    const bool success = outcome.status == FaxStatus::Success;
+    showResult(success, describeOutcome(outcome.status, outcome.sipStatus, outcome.fax.pagesTransferred, m_pages),
+               outcome.message, success ? m_pages : outcome.fax.pagesTransferred);
+}
+
+void SendingPage::showResult(bool success, const OutcomeText &text, const QString &technical, int transferred)
+{
     m_clock.stop();
     m_wave->setActive(false);
     m_cancel->hide();
     m_cancelNote->hide();
 
-    m_success = outcome.status == FaxStatus::Success;
-    const OutcomeText text =
-        describeOutcome(outcome.status, outcome.sipStatus, outcome.fax.pagesTransferred, m_pages);
-    const int transferred = m_success ? m_pages : outcome.fax.pagesTransferred;
+    m_success = success;
     m_pageProgress->setPages(m_pages, transferred, false);
     m_wave->setProgress(m_pages > 0 ? double(transferred) / m_pages : 0);
 
@@ -274,7 +296,7 @@ void SendingPage::onFinished(const FaxOutcome &outcome)
         setStyleProperty(m_result, "banner",
                          text.severity == Severity::Warning ? QStringLiteral("info") : QStringLiteral("fail"));
         m_result->setText(text.detail);
-        m_result->setToolTip(outcome.message);
+        m_result->setToolTip(technical);
         m_result->show();
         m_primary->setText(QStringLiteral("Erneut senden"));
         m_secondary->setText(QStringLiteral("Fax bearbeiten"));

@@ -289,14 +289,17 @@ faxwerk render --pdf letter.pdf --out letter.tif [--dither]
 ## Desktop app
 
 `faxwerk-gui` (`Faxwerk.app` on macOS) uses the same configuration file as the command
-line tool. On the first start it opens a short setup: the IP phone's credentials for the
-router, with a button that tests the registration, and then the header line, station ID
-and transfer options. After that the app has three screens:
+line tool. On the first start it opens a short setup in three steps: the routers (IP
+phone credentials with a button that tests the registration, header line and station
+ID), an optional FRITZ!Box user for the phonebook, and the transfer options. After that
+the app has these screens:
 
 - **Neues Fax:** PDFs are added with the file dialog, by drag and drop or as command line
   arguments. The pages are shown rasterized the way the recipient will get them. The
   screen also has the recipient number with an optional name and the last used
-  recipients.
+  recipients. Typing part of a name or number suggests matching contacts from the
+  FRITZ!Box phonebook. An unknown number with a name can be saved there with *Als
+  Kontakt speichern*.
 - **Sending:** the progress of the current fax (sign in, dial, handshake, pages, hang up)
   and the result, with retry and edit actions. Closing the window while a fax is being
   sent hangs up and unregisters first.
@@ -304,8 +307,42 @@ and transfer options. After that the app has three screens:
   `journal.json` in the app data directory (`%APPDATA%\Faxwerk` on Windows,
   `~/Library/Application Support/Faxwerk` on macOS, `~/.local/share/Faxwerk` on Linux). Entries can be sent again or saved as a PDF
   transmission report.
+- **Kontakte:** the phonebooks of the routers, with search. Selected entries can be
+  changed, and new ones added; both are saved in the FRITZ!Box.
 
-The app stores the SIP password in the INI file, as `[sip] password=`. The colors follow
+**Locations.** The app can send through several routers, for example one per practice
+reached over VPN. Each location has its own address, IP phone credentials, header line and
+station ID. With automatic selection (the default), the app registers at all locations in
+parallel before each fax, unregisters right away and sends through the first location in
+list order that accepted the registration. It also does this at start, when the window
+comes back to the front (e.g. after switching the VPN), and when the status display in
+the top bar is clicked. The status display shows the location it found. A location can
+also be chosen for a single fax on the *Neues Fax* screen. For automatic selection, give
+every router its own address (its IP address), because `fritz.box` resolves to whichever
+router the current DNS server names. The journal and the transmission report record
+the location.
+
+Locations are stored in the INI file as the array `[locations]`. The first location is
+also written to `[sip]` and `[fax]`, so the command line tool uses it. A configuration
+without `[locations]` (for example one written for the command line tool) becomes the
+first location.
+
+**Phonebook.** The contacts come from the phonebooks of the FRITZ!Box, read over TR-064
+(`http://<router>:49000`, service `X_AVM-DE_OnTel`). That needs a FRITZ!Box user (System ›
+FRITZ!Box-Benutzer), not the IP phone credentials. Reading needs the right
+„Sprachnachrichten, Faxnachrichten, FRITZ!App Fon und Anrufliste“, saving contacts
+„FRITZ!Box Einstellungen“, and *Zugriff für Anwendungen zulassen* (Heimnetz › Netzwerk ›
+Netzwerkeinstellungen) has to be on, which is the default. The user is set per location
+(`phonebook_user`, `phonebook_password` in `[locations]`). The app reads the phonebook of
+the location it finds, at most every 30 minutes and on *Telefonbuch neu laden*, and keeps
+a copy in `contacts.json` next to `journal.json`, so the suggestions also work without a
+connection. A person with fax numbers is offered with those only; otherwise with their
+landline and other numbers. Mobile and internal numbers are left out. When a contact is
+changed, the app reads the entry from the router, replaces the name and that one number,
+and writes it back, so the entry's other numbers, e-mail addresses and speed dials stay.
+New contacts go to the main phonebook (ID 0) of the location found last.
+
+The app stores the SIP and phonebook passwords in the INI file. The colors follow
 the Sonara practice website (aubergine `#7a5a8b` on cream `#faf5f0`). The font list starts
 with DM Sans and falls back to the system font when DM Sans is not installed.
 
@@ -392,7 +429,9 @@ upstream spandsp.
 | `tst_rtpsession` | accelerated pacing, gap concealment, late packets, SSRC change |
 | `tst_pdfrasterizer` | 3-page PDF from `QPdfWriter` → 3-page TIFF, 1728 px, 204×196 dpi, landscape rotation |
 | `tst_faxloopback` | two FaxEngines back to back: 3 pages with ECM, without ECM, and at V.17 |
-| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip and recent recipients |
+| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip, recent recipients, locations in the INI file (with phonebook access) and migration from a CLI configuration |
+| `tst_contacts` | FRITZ!Box phonebook XML (fax numbers first, no mobile or internal numbers), search by name and by number in national or international form, entry editing that keeps the rest of the entry, the phonebook cache; reading, changing and adding entries against a TR-064 mock with digest authentication, wrong password, missing write right, unreachable router |
+| `tst_locationprobe` | location selection against several `MockFritzBox` instances: unreachable and wrong-password locations are skipped, list order wins, probes unregister again |
 | `tst_endtoend` | full `FaxJob` against `MockFritzBox` (401 on REGISTER, 407 on INVITE, independent digest check, ACK rules, duplicate 200 OK, RTP at 2 ms packets, BYE from the mock); T.38 re-INVITE → 488; wrong password; busy |
 
 ## Known limitations and risks

@@ -4,10 +4,18 @@ add_library(faxwerk_gui_lib STATIC
     AppSettings.h
     ComposePage.cpp
     ComposePage.h
+    Contacts.cpp
+    Contacts.h
+    ContactsPage.cpp
+    ContactsPage.h
+    FritzPhonebook.cpp
+    FritzPhonebook.h
     Journal.cpp
     Journal.h
     JournalPage.cpp
     JournalPage.h
+    LocationProbe.cpp
+    LocationProbe.h
     MainWindow.cpp
     MainWindow.h
     Messages.cpp

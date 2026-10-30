@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Messages.h"
+
 #include "transport/FaxTransport.h"
 
 #include <QElapsedTimer>
@@ -28,8 +30,14 @@ class SendingPage : public QWidget
 public:
     explicit SendingPage(QWidget *parent = nullptr);
 
-    // Shows the progress of job until it finishes.
-    void attach(FaxJob *job, const QString &recipient, const QString &number, int pages);
+    // Starts a new send: clears the steps and starts the clock.
+    void begin(const QString &recipient, const QString &number, int pages);
+    // While the reachable location is being looked for.
+    void showSearching();
+    // Shows the progress of job (sending through location) until it finishes.
+    void attach(FaxJob *job, const QString &location);
+    // Ends the send without a job, e.g. when no location was reachable.
+    void showFailure(const OutcomeText &text, const QString &technical);
 
 signals:
     void cancelRequested();
@@ -45,6 +53,7 @@ private:
     void onPhase(FaxPhase phase);
     void onPages(int done, int total);
     void onFinished(const FaxOutcome &outcome);
+    void showResult(bool success, const OutcomeText &text, const QString &technical, int transferred);
     void updateElapsed();
 
     int m_pages = 0;

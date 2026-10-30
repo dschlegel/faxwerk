@@ -40,6 +40,7 @@ QJsonObject JournalEntry::toJson() const
     o.insert(QStringLiteral("time"), time.toString(Qt::ISODate));
     o.insert(QStringLiteral("destination"), destination);
     o.insert(QStringLiteral("name"), recipientName);
+    o.insert(QStringLiteral("location"), location);
     o.insert(QStringLiteral("documents"), QJsonArray::fromStringList(documents));
     o.insert(QStringLiteral("pages"), pages);
     o.insert(QStringLiteral("status"), faxStatusName(status));
@@ -60,6 +61,7 @@ JournalEntry JournalEntry::fromJson(const QJsonObject &o)
     e.time = QDateTime::fromString(o.value(QStringLiteral("time")).toString(), Qt::ISODate);
     e.destination = o.value(QStringLiteral("destination")).toString();
     e.recipientName = o.value(QStringLiteral("name")).toString();
+    e.location = o.value(QStringLiteral("location")).toString();
     for (const QJsonValue &doc : o.value(QStringLiteral("documents")).toArray())
         e.documents.append(doc.toString());
     e.pages = o.value(QStringLiteral("pages")).toInt();

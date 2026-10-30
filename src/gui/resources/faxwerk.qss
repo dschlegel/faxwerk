@@ -36,13 +36,20 @@ QPushButton[role="nav"]:checked {
     background: #ebe0f0;
 }
 
-/* Status chip */
-QLabel#statusChip {
+/* Status chip: shows the reachable location, click to look again */
+QPushButton#statusChip {
+    border: none;
     border-radius: 16px;
-    padding: 7px 14px;
+    padding: 0 14px;
+    min-height: 32px;
+    max-height: 32px;
     font-size: 14px;
+    font-weight: 400;
     background: #ebe0f0;
     color: #4f3661;
+}
+QPushButton#statusChip:hover {
+    background: #e2d2ec;
 }
 
 /* Text */
@@ -122,6 +129,13 @@ QComboBox QAbstractItemView {
     border: 1px solid #e2d2ec;
     selection-background-color: #ebe0f0;
     selection-color: #1f1d24;
+}
+QListView#contactPopup {
+    background: #ffffff;
+    border: 1px solid #e2d2ec;
+    border-radius: 12px;
+    padding: 4px 0;
+    outline: none;
 }
 QCheckBox {
     spacing: 10px;

@@ -30,5 +30,6 @@ QString shortTime(const QDateTime &time, const QDateTime &now = QDateTime::curre
 QString formatDuration(qint64 ms);
 
 QString pagesText(int pages);
+QString contactCountText(qsizetype contacts);
 
 } // namespace faxwerk::gui
