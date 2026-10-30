@@ -2,7 +2,7 @@
 # Builds Faxwerk for Windows and packages it. Run it in an MSYS2 UCRT64 shell
 # with these packages installed:
 #
-#   pacman -S --needed git make autoconf automake libtool \
+#   pacman -S --needed git make which diffutils autoconf automake libtool \
 #       mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
 #
 # Output in out/:

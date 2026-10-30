@@ -29,6 +29,7 @@ git -C "$SRC" fetch --quiet origin
 git -C "$SRC" checkout --quiet "$REF"
 git -C "$SRC" log -1 --format='spandsp: %H %cd'
 
+MAKE_ARGS=()
 case "$(uname -s)" in
     Darwin)
         # Homebrew installs GNU libtoolize as glibtoolize; spandsp needs libtiff's headers.
@@ -40,6 +41,15 @@ case "$(uname -s)" in
         fi
         JOBS="$(sysctl -n hw.ncpu)"
         ;;
+    MINGW*)
+        # spandsp's headers declare its functions as DLL imports unless
+        # LIBSPANDSP_EXPORTS is set, and upstream doesn't set it for MinGW:
+        # set it for the library and for the code generators that "make"
+        # builds from spandsp sources. Programs using the DLL leave it unset.
+        export CPPFLAGS="-DLIBSPANDSP_EXPORTS ${CPPFLAGS:-}"
+        MAKE_ARGS=("CC_FOR_BUILD=gcc -DLIBSPANDSP_EXPORTS")
+        JOBS="$(nproc)"
+        ;;
     *)
         JOBS="$(nproc)"
         ;;
@@ -47,9 +57,12 @@ esac
 
 cd "$SRC"
 git clean -fdxq
-./bootstrap.sh
+# What bootstrap.sh/autogen.sh do after their version checks. The checks find
+# "which" through whereis, which yields its man page on MSYS2.
+mkdir -p config
+autoreconf -fi
 ./configure --prefix="$PREFIX" --disable-static --enable-shared
-make -j"$JOBS"
-make install
+make -j"$JOBS" ${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"}
+make install ${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"}
 echo "$REF" > "$PREFIX/.faxwerk-ref"
 echo "spandsp installed in $PREFIX"

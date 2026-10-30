@@ -131,7 +131,7 @@ Install [MSYS2](https://www.msys2.org) and [Inno Setup 6](https://jrsoftware.org
 then in the *MSYS2 UCRT64* shell:
 
 ```sh
-pacman -S --needed git make autoconf automake libtool \
+pacman -S --needed git make which diffutils autoconf automake libtool \
     mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
 scripts/package-windows.sh
 ```
@@ -151,6 +151,19 @@ English user interface. The installer:
 
 The installer isn't signed, so Windows SmartScreen warns the first time it runs:
 *Weitere Informationen › Trotzdem ausführen*.
+
+**Building on Linux in a Windows VM.** `scripts/windows-vm.sh` runs Windows 11 in Docker
+([dockur/windows](https://github.com/dockur/windows), needs KVM) and builds the working
+tree there, including uncommitted changes:
+
+```sh
+scripts/windows-vm.sh up      # first time: downloads and installs Windows, MSYS2 and Inno Setup (30–60 min)
+scripts/windows-vm.sh build   # installer in out/windows/
+scripts/windows-vm.sh stop
+```
+
+The VM's screen is at http://127.0.0.1:8006 (user and password `faxwerk`) for trying the
+installer. Disk and SSH key live in `~/.local/share/faxwerk-windows-vm`.
 
 ### macOS
 
