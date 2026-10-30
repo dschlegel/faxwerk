@@ -5,8 +5,8 @@ such as an AVM FRITZ!Box. It registers with the router over SIP as an IP phone, 
 destination and runs the T.30 fax protocol in software (spandsp) over a G.711 audio
 stream. You don't need a fax modem, an ISDN card or CAPI.
 
-Windows and macOS are the target platforms. Development and testing currently happen on
-Linux in a Docker dev container.
+Windows and macOS are the target platforms, with installers for both. Development
+happens on Linux in a Docker dev container, and there is a Linux AppImage as well.
 
 > **Status:** desktop app (Qt Widgets, German user interface) and command line tool.
 > T.38 is planned. The architecture has a replaceable transport backend for it (see
@@ -23,9 +23,7 @@ CMake refuses names that contain "FRITZ".*
 - [Features](#features)
 - [Building in the dev container (Linux)](#building-in-the-dev-container-linux)
 - [Building against upstream spandsp](#building-against-upstream-spandsp)
-- [Linux AppImage](#linux-appimage)
-- [Building on macOS](#building-on-macos)
-- [Building on Windows](#building-on-windows)
+- [Packages and installers](#packages-and-installers)
 - [Setting up the FRITZ!Box](#setting-up-the-fritzbox)
 - [First practical test](#first-practical-test)
 - [Desktop app](#desktop-app)
@@ -107,18 +105,96 @@ The script clones spandsp to `build/upstream/spandsp`, installs it to
 `build/upstream/prefix`, configures Faxwerk with `CMAKE_PREFIX_PATH` pointing there, checks
 that the new API was detected and runs ctest.
 
-## Linux AppImage
+## Packages and installers
+
+Windows and macOS are the main targets. Each platform has one script that builds the
+working tree, runs the tests and packages the result into `out/`:
+
+| Platform | Command | Result |
+|----------|---------|--------|
+| Windows | `scripts/package-windows.sh` (MSYS2 UCRT64 shell) | `Faxwerk-<version>-windows-x64-setup.exe` |
+| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` |
+| Linux | `scripts/dev.sh appimage` (dev container) | `Faxwerk-<version>-x86_64.AppImage` |
+
+The version comes from `git describe`. Windows and macOS have no usable spandsp
+package, so both scripts first build upstream spandsp with `scripts/build-spandsp.sh`
+into `build/spandsp/prefix` (set `SPANDSP_REF` to pin a commit). `SKIP_TESTS=1` skips
+ctest.
+
+`.github/workflows/build.yml` runs all three on GitHub for every push and pull request
+and attaches the packages to the run. A tag `v*` also creates a GitHub release with all
+of them.
+
+### Windows
+
+Install [MSYS2](https://www.msys2.org) and [Inno Setup 6](https://jrsoftware.org/isinfo.php),
+then in the *MSYS2 UCRT64* shell:
+
+```sh
+pacman -S --needed git make autoconf automake libtool \
+    mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
+scripts/package-windows.sh
+```
+
+The script copies the programs into `build/windows/dist`. `windeployqt` adds Qt to that
+folder, and the script then adds every other DLL the programs load (the MinGW runtime,
+spandsp, libtiff and their dependencies). The folder runs as it is. Inno Setup
+(`packaging/windows/faxwerk.iss`) turns it into an installer with a German and an
+English user interface. The installer:
+
+- installs to `C:\Program Files\Faxwerk`,
+- adds a Start menu entry and an optional desktop icon,
+- adds "Open with" for PDFs (it doesn't become the default PDF viewer),
+- adds a firewall rule that allows incoming UDP for `faxwerk-gui.exe` and `faxwerk.exe`
+  in private networks (the router sends SIP requests and RTP audio to Faxwerk),
+- removes all of this again when it is uninstalled.
+
+The installer isn't signed, so Windows SmartScreen warns the first time it runs:
+*Weitere Informationen › Trotzdem ausführen*.
+
+### macOS
+
+Install Homebrew and the Xcode command line tools (`xcode-select --install`), then:
+
+```sh
+brew install qt libtiff autoconf automake libtool ninja pkgconf cmake
+scripts/package-macos.sh
+```
+
+The result is `build/macos/dist/Faxwerk.app` and a disk image. `macdeployqt` copies Qt,
+spandsp and libtiff into the bundle. The command line tool is inside the bundle at
+`Faxwerk.app/Contents/Helpers/faxwerk`. The bundle declares PDF as a document type
+("Open with" in Finder). It also has the local network usage text that macOS 15 and
+later show before the app may reach the router.
+
+**Installing on macOS without a Developer ID.** Without an Apple Developer ID
+certificate, the app is only signed ad hoc and not notarized. Gatekeeper blocks the
+first start of a downloaded copy:
+
+1. Open the disk image and drag *Faxwerk* to *Programme*.
+2. Start it once. macOS refuses to open it.
+3. Go to *Systemeinstellungen › Datenschutz & Sicherheit* and choose *Dennoch öffnen*
+   (on macOS 14 a right click on the app › *Öffnen* is enough).
+
+Alternatively remove the quarantine flag in the terminal:
+`xattr -dr com.apple.quarantine /Applications/Faxwerk.app`. A copy built on the Mac
+itself with `scripts/package-macos.sh` has no quarantine flag and starts directly.
+
+The GitHub build runs on Apple Silicon with Homebrew's libraries, so that disk image
+needs an Apple Silicon Mac with macOS 14 or newer. For an Intel Mac, run the script on
+that Mac.
+
+### Linux AppImage
 
 ```sh
 scripts/dev.sh appimage
 ```
 
-This builds a release version of the working tree in the dev container and writes
-`out/Faxwerk-<version>-x86_64.AppImage`. The version comes from `git describe`, or from
-`FAXWERK_APPIMAGE_VERSION`. The script downloads
-[linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) and its Qt plugin into
-`build/appimage/tools` on the first run. They bundle Qt, spandsp and libtiff. The
-AppImage starts the desktop app, and the command line tool is in it as `usr/bin/faxwerk`.
+This builds a release version in the dev container and packages it with
+[linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) and its Qt plugin. The script
+downloads both into `build/appimage/tools` on the first run. The AppImage starts the
+desktop app, and the command line tool is in it as `usr/bin/faxwerk`. The container is
+Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
 
 To let [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find new
 versions, pass the update information. The script then also writes a `.zsync` file that
@@ -129,69 +205,25 @@ FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86
     scripts/dev.sh appimage
 ```
 
-`.github/workflows/appimage.yml` does the same on GitHub for every push and pull request:
-it builds the container image, runs the tests, builds the AppImage and attaches it with
-the `.zsync` file to the run. A tag `v*` also creates a GitHub release with both files. The
-update information comes from the repository variable `FAXWERK_UPDATE_INFORMATION`.
-Without that variable, it points at the latest release of the repository
-(`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
+On GitHub the update information comes from the repository variable
+`FAXWERK_UPDATE_INFORMATION`. Without that variable, it points at the latest release of
+the repository (`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
 
-The container is Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
+### Building by hand
 
-## Building on macOS
+The scripts above wrap these steps. With spandsp installed in a prefix:
 
 ```sh
-brew install cmake ninja pkg-config qt libtiff autoconf automake libtool
-
-# spandsp from source (upstream API)
-git clone https://github.com/freeswitch/spandsp.git
-cd spandsp
-./bootstrap.sh
-./configure --prefix="$HOME/opt/spandsp" \
-    CPPFLAGS="-I$(brew --prefix libtiff)/include" LDFLAGS="-L$(brew --prefix libtiff)/lib"
-make -j"$(sysctl -n hw.ncpu)" && make install
-cd ..
-
-# Faxwerk
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix libtiff);$HOME/opt/spandsp"
+    -DCMAKE_PREFIX_PATH="<Qt>;<libtiff>;<spandsp prefix>"
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Homebrew's `qt` formula includes the Qt PDF module. spandsp is linked dynamically
-(`libspandsp.dylib`), so when you distribute the app bundle, ship it and run
-`macdeployqt`.
-
-## Building on Windows
-
-Two options:
-
-**MSYS2 (UCRT64), recommended because spandsp builds there with autotools:**
-
-```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake \
-    mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-libtiff \
-    mingw-w64-ucrt-x86_64-qt6-base autoconf automake libtool git
-# Qt PDF: install the MSYS2 package that provides Qt6Pdf
-# (check with: pacman -Ss qt6 | grep -i pdf)
-
-git clone https://github.com/freeswitch/spandsp.git
-cd spandsp && ./bootstrap.sh && ./configure --prefix=/ucrt64/opt/spandsp && make -j && make install && cd ..
-
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64/opt/spandsp
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-**MSVC + vcpkg:** `vcpkg install tiff` provides libtiff. Get Qt including *Qt PDF* from the
-Qt online installer or vcpkg. Build spandsp from source first (for example with MSYS2 as
-above, or with its Visual Studio project files) and pass its prefix through
-`CMAKE_PREFIX_PATH` or `SpanDSP_ROOT`. `FindSpanDSP.cmake` falls back to
-`find_path`/`find_library` when pkg-config is missing.
-
-`windeployqt` ships the Qt DLLs. `libspandsp-*.dll` and the libtiff DLL must sit next to
-`faxwerk.exe` because both are linked dynamically.
+On macOS the Qt and libtiff prefixes are `$(brew --prefix qt)` and
+`$(brew --prefix libtiff)`. In MSYS2 only the spandsp prefix is needed. MSVC also works
+when spandsp is built separately: `FindSpanDSP.cmake` falls back to
+`find_path`/`find_library` without pkg-config and honors `SpanDSP_ROOT`.
 
 ## Setting up the FRITZ!Box
 
@@ -256,8 +288,8 @@ and transfer options. After that the app has three screens:
   and the result, with retry and edit actions. Closing the window while a fax is being
   sent hangs up and unregisters first.
 - **Gesendet:** every send attempt with its result in plain language, saved in
-  `journal.json` in the app data directory (`~/.local/share/Faxwerk` on Linux,
-  `%APPDATA%\Faxwerk` on Windows). Entries can be sent again or saved as a PDF
+  `journal.json` in the app data directory (`%APPDATA%\Faxwerk` on Windows,
+  `~/Library/Application Support/Faxwerk` on macOS, `~/.local/share/Faxwerk` on Linux). Entries can be sent again or saved as a PDF
   transmission report.
 
 The app stores the SIP password in the INI file, as `[sip] password=`. The colors follow
