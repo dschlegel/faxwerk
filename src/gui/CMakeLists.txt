@@ -51,6 +51,43 @@ target_link_libraries(faxwerk_gui PRIVATE faxwerk_gui_lib)
 target_compile_definitions(faxwerk_gui PRIVATE QT_NO_CAST_FROM_ASCII)
 faxwerk_set_warnings(faxwerk_gui)
 
+if(WIN32)
+    # Icon and version information of faxwerk-gui.exe.
+    set(FAXWERK_ICO "${PROJECT_SOURCE_DIR}/packaging/windows/faxwerk.ico")
+    configure_file("${PROJECT_SOURCE_DIR}/packaging/windows/faxwerk.rc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/faxwerk.rc" @ONLY)
+    target_sources(faxwerk_gui PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/faxwerk.rc")
+endif()
+
+if(APPLE)
+    set(FAXWERK_BUNDLE_ID "org.faxwerk.Faxwerk" CACHE STRING "macOS bundle identifier of the desktop app")
+
+    # faxwerk.icns from the 1024 px PNG, with the tools every Mac has.
+    set(_png "${PROJECT_SOURCE_DIR}/packaging/icons/faxwerk-1024.png")
+    set(_iconset "${CMAKE_CURRENT_BINARY_DIR}/faxwerk.iconset")
+    set(_icns "${CMAKE_CURRENT_BINARY_DIR}/faxwerk.icns")
+    set(_icon_commands COMMAND "${CMAKE_COMMAND}" -E make_directory "${_iconset}")
+    foreach(_size 16 32 128 256 512)
+        math(EXPR _double "${_size} * 2")
+        list(APPEND _icon_commands
+            COMMAND sips -z ${_size} ${_size} "${_png}" --out "${_iconset}/icon_${_size}x${_size}.png"
+            COMMAND sips -z ${_double} ${_double} "${_png}" --out "${_iconset}/icon_${_size}x${_size}@2x.png")
+    endforeach()
+    add_custom_command(OUTPUT "${_icns}"
+        ${_icon_commands}
+        COMMAND iconutil -c icns "${_iconset}" -o "${_icns}"
+        DEPENDS "${_png}"
+        COMMENT "Creating faxwerk.icns"
+        VERBATIM)
+    target_sources(faxwerk_gui PRIVATE "${_icns}")
+    set_source_files_properties("${_icns}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
+    set_target_properties(faxwerk_gui PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${PROJECT_SOURCE_DIR}/packaging/macos/Info.plist.in"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${FAXWERK_BUNDLE_ID}"
+        MACOSX_BUNDLE_ICON_FILE faxwerk.icns)
+endif()
+
 install(TARGETS faxwerk_gui
     RUNTIME DESTINATION bin
     BUNDLE DESTINATION .)
