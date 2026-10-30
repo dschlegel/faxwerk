@@ -59,6 +59,8 @@ DESTDIR="$APPDIR" cmake --install "$WORK/build"
 export APPIMAGE_EXTRACT_AND_RUN=1
 export PATH="$TOOLS:$PATH"
 export QMAKE="${QMAKE:-$(command -v qmake6 || command -v qmake)}"
+# The command line tool uses the offscreen platform when there is no display.
+export EXTRA_PLATFORM_PLUGINS="libqoffscreen.so"
 export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
 export LDAI_OUTPUT="$OUTPUT"
 export OUTPUT
