@@ -8,6 +8,8 @@ stream. You don't need a fax modem, an ISDN card or CAPI.
 Windows and macOS are the target platforms, with installers for both. Development
 happens on Linux in a Docker dev container, and there is a Linux AppImage as well.
 
+![Faxwerk: a new fax with three pages, ready to send](docs/screenshots/neues-fax.png)
+
 > **Status:** desktop app (Qt Widgets, German user interface) and command line tool.
 > T.38 is planned. The architecture has a replaceable transport backend for it (see
 > [Architecture](#architecture)).
@@ -309,6 +311,14 @@ the app has these screens:
   transmission report.
 - **Kontakte:** the phonebooks of the routers, with search. Selected entries can be
   changed, and new ones added; both are saved in the FRITZ!Box.
+
+| Sending | Result |
+| --- | --- |
+| ![Fax being sent, page 2 of 3](docs/screenshots/senden.png) | ![Fax delivered](docs/screenshots/gesendet.png) |
+| **Gesendet** | **Kontakte** |
+| ![Journal of sent faxes](docs/screenshots/journal.png) | ![Contacts from the FRITZ!Box phonebook](docs/screenshots/kontakte.png) |
+| **Suggestions while typing** | **Setup** |
+| ![Phonebook suggestions for the recipient](docs/screenshots/vorschlag.png) | ![Router locations in the settings](docs/screenshots/einrichtung.png) |
 
 **Locations.** The app can send through several routers, for example one per practice
 reached over VPN. Each location has its own address, IP phone credentials, header line and
