@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Builds a Linux AppImage (x86_64) of the current working tree into out/.
+# Meant to run inside the dev container: scripts/dev.sh appimage
+#
+# The AppImage contains the desktop app (faxwerk-gui, started by default) and
+# the command line tool. Qt, spandsp and libtiff are bundled by linuxdeploy.
+#
+# Environment:
+#   FAXWERK_UPDATE_INFORMATION  AppImage update information, embedded so that
+#                               AppImageUpdate can fetch new versions, e.g.
+#                                 zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync
+#                                 gh-releases-zsync|owner|repo|latest|Faxwerk-*-x86_64.AppImage.zsync
+#                               Unset: no update information, no .zsync file.
+#   FAXWERK_APPIMAGE_VERSION    version in the file name (default: git describe)
+#   OUT_DIR                     output directory (default: out/)
+#   LINUXDEPLOY_URL, LINUXDEPLOY_QT_URL
+#                               download locations of the tools (default: continuous builds)
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK="$REPO_DIR/build/appimage"
+TOOLS="$WORK/tools"
+APPDIR="$WORK/AppDir"
+OUT_DIR="${OUT_DIR:-$REPO_DIR/out}"
+ARCH=x86_64
+
+LINUXDEPLOY_URL="${LINUXDEPLOY_URL:-https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage}"
+LINUXDEPLOY_QT_URL="${LINUXDEPLOY_QT_URL:-https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-$ARCH.AppImage}"
+
+VERSION="${FAXWERK_APPIMAGE_VERSION:-$(git -C "$REPO_DIR" describe --tags --always --dirty 2>/dev/null || echo dev)}"
+VERSION="${VERSION#v}"
+OUTPUT="Faxwerk-$VERSION-$ARCH.AppImage"
+
+# --- Tools -------------------------------------------------------------------------
+mkdir -p "$TOOLS"
+fetch() {
+    local url="$1" file="$2"
+    if [ ! -x "$TOOLS/$file" ]; then
+        echo "Downloading $file"
+        curl -fsSL -o "$TOOLS/$file.part" "$url"
+        chmod +x "$TOOLS/$file.part"
+        mv "$TOOLS/$file.part" "$TOOLS/$file"
+    fi
+}
+fetch "$LINUXDEPLOY_URL" "linuxdeploy-$ARCH.AppImage"
+fetch "$LINUXDEPLOY_QT_URL" "linuxdeploy-plugin-qt-$ARCH.AppImage"
+
+# --- Build and install into the AppDir ---------------------------------------------------
+cmake -S "$REPO_DIR" -B "$WORK/build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DFAXWERK_BUILD_TESTS=OFF
+cmake --build "$WORK/build"
+rm -rf "$APPDIR"
+DESTDIR="$APPDIR" cmake --install "$WORK/build"
+
+# --- Package ---------------------------------------------------------------------------
+# Containers usually have no FUSE: let the tool AppImages unpack themselves.
+export APPIMAGE_EXTRACT_AND_RUN=1
+export PATH="$TOOLS:$PATH"
+export QMAKE="${QMAKE:-$(command -v qmake6 || command -v qmake)}"
+export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
+export LDAI_OUTPUT="$OUTPUT"
+export OUTPUT
+if [ -n "${FAXWERK_UPDATE_INFORMATION:-}" ]; then
+    export LDAI_UPDATE_INFORMATION="$FAXWERK_UPDATE_INFORMATION"
+    export UPDATE_INFORMATION="$FAXWERK_UPDATE_INFORMATION"
+    echo "Update information: $FAXWERK_UPDATE_INFORMATION"
+else
+    unset LDAI_UPDATE_INFORMATION UPDATE_INFORMATION
+    echo "No update information set (FAXWERK_UPDATE_INFORMATION); building without .zsync"
+fi
+
+mkdir -p "$OUT_DIR"
+cd "$OUT_DIR"
+rm -f "$OUTPUT" "$OUTPUT.zsync"
+"linuxdeploy-$ARCH.AppImage" \
+    --appdir "$APPDIR" \
+    --executable "$APPDIR/usr/bin/faxwerk-gui" \
+    --executable "$APPDIR/usr/bin/faxwerk" \
+    --desktop-file "$APPDIR/usr/share/applications/faxwerk.desktop" \
+    --icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/faxwerk.svg" \
+    --plugin qt \
+    --output appimage
+
+echo
+echo "Built: $OUT_DIR/$OUTPUT"
+[ -f "$OUTPUT.zsync" ] && echo "Update file: $OUT_DIR/$OUTPUT.zsync"
+exit 0

@@ -8,8 +8,8 @@ stream. You don't need a fax modem, an ISDN card or CAPI.
 Windows and macOS are the target platforms. Development and testing currently happen on
 Linux in a Docker dev container.
 
-> **Status:** command line tool only. A GUI and T.38 are planned but not part of this
-> step. The architecture has a replaceable transport backend for them (see
+> **Status:** desktop app (Qt Widgets, German user interface) and command line tool.
+> T.38 is planned. The architecture has a replaceable transport backend for it (see
 > [Architecture](#architecture)).
 
 *FRITZ!Box is a trademark of AVM GmbH. Faxwerk is not affiliated with AVM. The product
@@ -23,10 +23,12 @@ CMake refuses names that contain "FRITZ".*
 - [Features](#features)
 - [Building in the dev container (Linux)](#building-in-the-dev-container-linux)
 - [Building against upstream spandsp](#building-against-upstream-spandsp)
+- [Linux AppImage](#linux-appimage)
 - [Building on macOS](#building-on-macos)
 - [Building on Windows](#building-on-windows)
 - [Setting up the FRITZ!Box](#setting-up-the-fritzbox)
 - [First practical test](#first-practical-test)
+- [Desktop app](#desktop-app)
 - [Command line reference](#command-line-reference)
 - [Configuration file](#configuration-file)
 - [Exit codes](#exit-codes)
@@ -104,6 +106,37 @@ scripts/dev.sh upstream            # optional argument: git ref, default master
 The script clones spandsp to `build/upstream/spandsp`, installs it to
 `build/upstream/prefix`, configures Faxwerk with `CMAKE_PREFIX_PATH` pointing there, checks
 that the new API was detected and runs ctest.
+
+## Linux AppImage
+
+```sh
+scripts/dev.sh appimage
+```
+
+This builds a release version of the working tree in the dev container and writes
+`out/Faxwerk-<version>-x86_64.AppImage`. The version comes from `git describe`, or from
+`FAXWERK_APPIMAGE_VERSION`. The script downloads
+[linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) and its Qt plugin into
+`build/appimage/tools` on the first run. They bundle Qt, spandsp and libtiff. The
+AppImage starts the desktop app, and the command line tool is in it as `usr/bin/faxwerk`.
+
+To let [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find new
+versions, pass the update information. The script then also writes a `.zsync` file that
+must be published next to the AppImage:
+
+```sh
+FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync' \
+    scripts/dev.sh appimage
+```
+
+`.github/workflows/appimage.yml` does the same on GitHub for every push and pull request:
+it builds the container image, runs the tests, builds the AppImage and attaches it with
+the `.zsync` file to the run. A tag `v*` also creates a GitHub release with both files. The
+update information comes from the repository variable `FAXWERK_UPDATE_INFORMATION`.
+Without that variable, it points at the latest release of the repository
+(`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
+
+The container is Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
 
 ## Building on macOS
 
@@ -208,6 +241,29 @@ To check how a PDF will look as a fax without sending it:
 faxwerk render --pdf letter.pdf --out letter.tif [--dither]
 ```
 
+## Desktop app
+
+`faxwerk-gui` (`Faxwerk.app` on macOS) uses the same configuration file as the command
+line tool. On the first start it opens a short setup: the IP phone's credentials for the
+router, with a button that tests the registration, and then the header line, station ID
+and transfer options. After that the app has three screens:
+
+- **Neues Fax:** PDFs are added with the file dialog, by drag and drop or as command line
+  arguments. The pages are shown rasterized the way the recipient will get them. The
+  screen also has the recipient number with an optional name and the last used
+  recipients.
+- **Sending:** the progress of the current fax (sign in, dial, handshake, pages, hang up)
+  and the result, with retry and edit actions. Closing the window while a fax is being
+  sent hangs up and unregisters first.
+- **Gesendet:** every send attempt with its result in plain language, saved in
+  `journal.json` in the app data directory (`~/.local/share/Faxwerk` on Linux,
+  `%APPDATA%\Faxwerk` on Windows). Entries can be sent again or saved as a PDF
+  transmission report.
+
+The app stores the SIP password in the INI file, as `[sip] password=`. The colors follow
+the Sonara practice website (aubergine `#7a5a8b` on cream `#faf5f0`). The font list starts
+with DM Sans and falls back to the system font when DM Sans is not installed.
+
 ## Command line reference
 
 ```
@@ -269,6 +325,7 @@ src/core (static library faxwerk_core)
   transport/SipG711Transport   REGISTER -> INVITE -> RTP+FaxEngine -> BYE -> unregister
   FaxJob              rasterize -> transport -> outcome, overall timeout
 src/cli               faxwerk executable
+src/gui               desktop app (faxwerk_gui_lib + faxwerk-gui), German UI
 tests/                QtTest suites incl. MockFritzBox
 ```
 
@@ -290,6 +347,7 @@ upstream spandsp.
 | `tst_rtpsession` | accelerated pacing, gap concealment, late packets, SSRC change |
 | `tst_pdfrasterizer` | 3-page PDF from `QPdfWriter` → 3-page TIFF, 1728 px, 204×196 dpi, landscape rotation |
 | `tst_faxloopback` | two FaxEngines back to back: 3 pages with ECM, without ECM, and at V.17 |
+| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip and recent recipients |
 | `tst_endtoend` | full `FaxJob` against `MockFritzBox` (401 on REGISTER, 407 on INVITE, independent digest check, ACK rules, duplicate 200 OK, RTP at 2 ms packets, BYE from the mock); T.38 re-INVITE → 488; wrong password; busy |
 
 ## Known limitations and risks

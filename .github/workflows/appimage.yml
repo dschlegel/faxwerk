@@ -1,0 +1,68 @@
+# Builds and tests Faxwerk in the dev container and packages a Linux AppImage.
+#
+# - Every push and pull request: the AppImage (and its .zsync file) is
+#   attached to the workflow run as an artifact.
+# - Tags "v*" (e.g. v0.2.0): additionally a GitHub release with both files.
+#
+# Update information embedded in the AppImage (for AppImageUpdate):
+#   set the repository variable FAXWERK_UPDATE_INFORMATION
+#   (Settings > Secrets and variables > Actions > Variables), for example
+#     zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync
+#   Without it, the AppImage points at the latest release of this repository.
+name: AppImage
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe needs the tags for the version
+
+      - name: Build dev container image
+        run: docker build -t faxwerk-dev:latest -f .devcontainer/Dockerfile .devcontainer
+
+      - name: Build and test
+        run: scripts/dev.sh test
+
+      - name: Build AppImage
+        env:
+          FAXWERK_UPDATE_INFORMATION: ${{ vars.FAXWERK_UPDATE_INFORMATION || format('gh-releases-zsync|{0}|{1}|latest|Faxwerk-*-x86_64.AppImage.zsync', github.repository_owner, github.event.repository.name) }}
+        run: scripts/dev.sh appimage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faxwerk-AppImage
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: appimage
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Faxwerk-AppImage
+          path: out
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Faxwerk ${GITHUB_REF_NAME#v}" \
+            --generate-notes

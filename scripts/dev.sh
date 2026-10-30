@@ -9,11 +9,14 @@
 #   shell      interactive shell in the container
 #   run ...    run the faxwerk binary with the given arguments
 #   upstream   build upstream spandsp from GitHub and compile/test Faxwerk against it
+#   appimage   build a Linux AppImage of the working tree into out/ (see scripts/build-appimage.sh)
 #
 # Environment:
 #   DOCKER      container engine (default: docker; podman works as well)
 #   IMAGE       image tag (default: faxwerk-dev:latest)
 #   BUILD_TYPE  CMake build type (default: Debug)
+#   FAXWERK_UPDATE_INFORMATION, FAXWERK_APPIMAGE_VERSION
+#               passed to the AppImage build (see scripts/build-appimage.sh)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -44,6 +47,8 @@ in_container() {
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
         -e FAXWERK_PASSWORD \
+        -e FAXWERK_UPDATE_INFORMATION \
+        -e FAXWERK_APPIMAGE_VERSION \
         -v "$REPO_DIR:/workspace" \
         -w /workspace \
         "$IMAGE" "$@"
@@ -72,5 +77,6 @@ case "$cmd" in
     shell)    ensure_image; in_container bash ;;
     run)      ensure_image; in_container "$BUILD_DIR/src/cli/faxwerk" "$@" ;;
     upstream) ensure_image; in_container scripts/build-upstream-spandsp.sh "$@" ;;
-    *)        echo "unknown command: $cmd" >&2; sed -n '2,20p' "$0" >&2; exit 2 ;;
+    appimage) ensure_image; in_container scripts/build-appimage.sh "$@" ;;
+    *)        echo "unknown command: $cmd" >&2; sed -n '2,17p' "$0" >&2; exit 2 ;;
 esac
