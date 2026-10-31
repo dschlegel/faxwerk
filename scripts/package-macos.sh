@@ -7,6 +7,7 @@
 # Output in out/:
 #   Faxwerk-<version>-macos-<arch>.dmg   app to drag to /Applications
 #   Faxwerk-<version>-macos-<arch>.pkg   installer that puts the app into /Applications
+#                                        and the command line tool into /usr/local/bin
 # and build/macos/dist/Faxwerk.app, which can also be copied to /Applications
 # directly.
 #
@@ -187,8 +188,34 @@ mkdir -p "$PKG_ROOT" "$PKG_WORK"
 ditto "$APP" "$PKG_ROOT/$APP_NAME"
 pkgbuild --analyze --root "$PKG_ROOT" "$PKG_WORK/component.plist"
 /usr/libexec/PlistBuddy -c 'Set :0:BundleIsRelocatable false' "$PKG_WORK/component.plist"
+# postinstall: the command line tool as /usr/local/bin/faxwerk. A small
+# script rather than a symlink, so that the tool keeps finding the bundle's
+# Qt plugins through its real path. A file there that is not ours stays.
+mkdir -p "$PKG_WORK/scripts"
+cat > "$PKG_WORK/scripts/postinstall" <<'POSTINSTALL'
+#!/bin/sh
+# $3: target volume
+BIN_DIR="${3%/}/usr/local/bin"
+TOOL="$BIN_DIR/faxwerk"
+MARKER="# Faxwerk command line tool, installed by the Faxwerk package"
+mkdir -p "$BIN_DIR" || exit 0
+if [ -e "$TOOL" ] || [ -L "$TOOL" ]; then
+    grep -q "$MARKER" "$TOOL" 2>/dev/null || exit 0
+    rm -f "$TOOL"
+fi
+cat > "$TOOL" <<EOF
+#!/bin/sh
+$MARKER
+exec "/Applications/@APP_NAME@/Contents/Helpers/faxwerk" "\$@"
+EOF
+chmod 755 "$TOOL"
+exit 0
+POSTINSTALL
+sed -i '' "s|@APP_NAME@|$APP_NAME|" "$PKG_WORK/scripts/postinstall"
+chmod 755 "$PKG_WORK/scripts/postinstall"
 pkgbuild \
     --root "$PKG_ROOT" \
+    --scripts "$PKG_WORK/scripts" \
     --component-plist "$PKG_WORK/component.plist" \
     --install-location /Applications \
     --identifier "$BUNDLE_ID" \
