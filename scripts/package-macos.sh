@@ -2,7 +2,7 @@
 # Builds Faxwerk.app for macOS and packages it as a disk image. Needs Homebrew
 # and the Xcode command line tools:
 #
-#   brew install qt libtiff autoconf automake libtool ninja pkgconf cmake
+#   brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 #
 # Output in out/:
 #   Faxwerk-<version>-macos-<arch>.dmg

@@ -172,7 +172,7 @@ installer. Disk and SSH key live in `~/.local/share/faxwerk-windows-vm`.
 Install Homebrew and the Xcode command line tools (`xcode-select --install`), then:
 
 ```sh
-brew install qt libtiff autoconf automake libtool ninja pkgconf cmake
+brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 scripts/package-macos.sh
 ```
 

@@ -32,12 +32,16 @@ git -C "$SRC" log -1 --format='spandsp: %H %cd'
 MAKE_ARGS=()
 case "$(uname -s)" in
     Darwin)
-        # Homebrew installs GNU libtoolize as glibtoolize; spandsp needs libtiff's headers.
+        # Homebrew installs GNU libtoolize as glibtoolize. spandsp needs the
+        # headers of libtiff and libjpeg, which the compiler doesn't look for
+        # in Homebrew's prefix (/opt/homebrew on Apple Silicon).
         if command -v brew >/dev/null; then
             export PATH="$(brew --prefix libtool)/libexec/gnubin:$PATH"
-            TIFF_PREFIX="$(brew --prefix libtiff)"
-            export CPPFLAGS="-I$TIFF_PREFIX/include ${CPPFLAGS:-}"
-            export LDFLAGS="-L$TIFF_PREFIX/lib ${LDFLAGS:-}"
+            for formula in libtiff jpeg-turbo; do
+                FORMULA_PREFIX="$(brew --prefix "$formula")"
+                export CPPFLAGS="-I$FORMULA_PREFIX/include ${CPPFLAGS:-}"
+                export LDFLAGS="-L$FORMULA_PREFIX/lib ${LDFLAGS:-}"
+            done
         fi
         JOBS="$(sysctl -n hw.ncpu)"
         ;;
