@@ -15,7 +15,7 @@
 #   DOCKER      container engine (default: docker; podman works as well)
 #   IMAGE       image tag (default: faxwerk-dev:latest)
 #   BUILD_TYPE  CMake build type (default: Debug)
-#   FAXWERK_UPDATE_INFORMATION, FAXWERK_APPIMAGE_VERSION
+#   FAXWERK_UPDATE_INFORMATION, FAXWERK_APPIMAGE_VERSION, FAXWERK_APPIMAGEUPDATE
 #               passed to the AppImage build (see scripts/build-appimage.sh)
 set -euo pipefail
 
@@ -49,6 +49,7 @@ in_container() {
         -e FAXWERK_PASSWORD \
         -e FAXWERK_UPDATE_INFORMATION \
         -e FAXWERK_APPIMAGE_VERSION \
+        -e FAXWERK_APPIMAGEUPDATE \
         -v "$REPO_DIR:/workspace" \
         -w /workspace \
         "$IMAGE" "$@"

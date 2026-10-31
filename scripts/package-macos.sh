@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Builds Faxwerk.app for macOS and packages it as a disk image. Needs Homebrew
-# and the Xcode command line tools:
+# Builds Faxwerk.app for macOS and packages it as a disk image and as an
+# installer package. Needs Homebrew and the Xcode command line tools:
 #
 #   brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 #
 # Output in out/:
-#   Faxwerk-<version>-macos-<arch>.dmg
+#   Faxwerk-<version>-macos-<arch>.dmg   app to drag to /Applications
+#   Faxwerk-<version>-macos-<arch>.pkg   installer that puts the app into /Applications
+#                                        and the command line tool into /usr/local/bin
 # and build/macos/dist/Faxwerk.app, which can also be copied to /Applications
 # directly.
 #
@@ -18,6 +20,9 @@
 #   SKIP_TESTS=1     do not run ctest
 #   QT_PREFIX        Qt installation (default: brew --prefix qt)
 #   OUT_DIR          output directory (default: out/)
+#   PKG_SIGN_IDENTITY
+#                    "Developer ID Installer: ..." certificate in the keychain to
+#                    sign the .pkg with (default: unsigned)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -165,3 +170,66 @@ cp "$REPO_DIR/LICENSE" "$STAGE/LICENSE.txt"
 ln -s /Applications "$STAGE/Programme"
 hdiutil create -volname "${APP_NAME%.app}" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 echo "Disk image: $DMG"
+
+# --- Installer package ---------------------------------------------------------------
+# Installs the app into /Applications. Files put there by the installer get no
+# quarantine flag, so after the package itself is allowed once the app starts
+# directly. Not relocatable: the installer must not look for another copy of
+# the app elsewhere and update that one instead.
+PKG="$OUT_DIR/Faxwerk-$VERSION-macos-$ARCH.pkg"
+PKG_ROOT="$WORK/pkgroot"
+PKG_WORK="$WORK/pkg"
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
+# Installer versions must be numeric: the project version from CMakeLists.txt,
+# not git describe (e.g. 0.1.0-3-gabc1234).
+PKG_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+rm -rf "$PKG_ROOT" "$PKG_WORK" "$PKG"
+mkdir -p "$PKG_ROOT" "$PKG_WORK"
+ditto "$APP" "$PKG_ROOT/$APP_NAME"
+pkgbuild --analyze --root "$PKG_ROOT" "$PKG_WORK/component.plist"
+/usr/libexec/PlistBuddy -c 'Set :0:BundleIsRelocatable false' "$PKG_WORK/component.plist"
+# postinstall: the command line tool as /usr/local/bin/faxwerk. A small
+# script rather than a symlink, so that the tool keeps finding the bundle's
+# Qt plugins through its real path. A file there that is not ours stays.
+mkdir -p "$PKG_WORK/scripts"
+cat > "$PKG_WORK/scripts/postinstall" <<'POSTINSTALL'
+#!/bin/sh
+# $3: target volume
+BIN_DIR="${3%/}/usr/local/bin"
+TOOL="$BIN_DIR/faxwerk"
+MARKER="# Faxwerk command line tool, installed by the Faxwerk package"
+mkdir -p "$BIN_DIR" || exit 0
+if [ -e "$TOOL" ] || [ -L "$TOOL" ]; then
+    grep -q "$MARKER" "$TOOL" 2>/dev/null || exit 0
+    rm -f "$TOOL"
+fi
+cat > "$TOOL" <<EOF
+#!/bin/sh
+$MARKER
+exec "/Applications/@APP_NAME@/Contents/Helpers/faxwerk" "\$@"
+EOF
+chmod 755 "$TOOL"
+exit 0
+POSTINSTALL
+sed -i '' "s|@APP_NAME@|$APP_NAME|" "$PKG_WORK/scripts/postinstall"
+chmod 755 "$PKG_WORK/scripts/postinstall"
+pkgbuild \
+    --root "$PKG_ROOT" \
+    --scripts "$PKG_WORK/scripts" \
+    --component-plist "$PKG_WORK/component.plist" \
+    --install-location /Applications \
+    --identifier "$BUNDLE_ID" \
+    --version "$PKG_VERSION" \
+    "$PKG_WORK/Faxwerk-component.pkg"
+sign_args=()
+if [ -n "${PKG_SIGN_IDENTITY:-}" ]; then
+    sign_args=(--sign "$PKG_SIGN_IDENTITY")
+fi
+productbuild \
+    --package "$PKG_WORK/Faxwerk-component.pkg" \
+    --identifier "$BUNDLE_ID.pkg" \
+    --version "$PKG_VERSION" \
+    "${sign_args[@]+"${sign_args[@]}"}" \
+    "$PKG"
+pkgutil --check-signature "$PKG" || true
+echo "Installer package: $PKG"

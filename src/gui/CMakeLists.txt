@@ -1,5 +1,7 @@
 # Everything except main.cpp lives in a library so that tests can link it.
 add_library(faxwerk_gui_lib STATIC
+    AppImageUpdater.cpp
+    AppImageUpdater.h
     AppSettings.cpp
     AppSettings.h
     ComposePage.cpp
@@ -10,6 +12,8 @@ add_library(faxwerk_gui_lib STATIC
     ContactsPage.h
     FritzPhonebook.cpp
     FritzPhonebook.h
+    GitHubReleaseUpdater.cpp
+    GitHubReleaseUpdater.h
     Journal.cpp
     Journal.h
     JournalPage.cpp
@@ -28,6 +32,8 @@ add_library(faxwerk_gui_lib STATIC
     SetupPage.h
     Theme.cpp
     Theme.h
+    UpdateService.cpp
+    UpdateService.h
     Widgets.cpp
     Widgets.h
 )
@@ -41,6 +47,35 @@ target_include_directories(faxwerk_gui_lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(faxwerk_gui_lib PUBLIC faxwerk_core Qt6::Widgets)
 target_compile_definitions(faxwerk_gui_lib PRIVATE QT_NO_CAST_FROM_ASCII)
 faxwerk_set_warnings(faxwerk_gui_lib)
+
+# Windows and macOS look for updates in the latest GitHub release of this
+# repository (GitHubReleaseUpdater). Empty: no update check.
+set(FAXWERK_UPDATE_REPOSITORY "dschlegel/faxwerk" CACHE STRING
+    "GitHub repository (owner/name) whose releases the desktop app offers as updates")
+target_compile_definitions(faxwerk_gui_lib PRIVATE FAXWERK_UPDATE_REPOSITORY="${FAXWERK_UPDATE_REPOSITORY}")
+
+# Self-update of the Linux AppImage with libappimageupdate (AppImageUpdate
+# project). The dev container builds it into /usr/local; see
+# .devcontainer/Dockerfile.
+if(UNIX AND NOT APPLE)
+    set(FAXWERK_APPIMAGEUPDATE "AUTO" CACHE STRING
+        "Update the AppImage from inside the app with libappimageupdate (AUTO, ON, OFF)")
+    set_property(CACHE FAXWERK_APPIMAGEUPDATE PROPERTY STRINGS AUTO ON OFF)
+    if(NOT FAXWERK_APPIMAGEUPDATE STREQUAL "OFF")
+        find_path(AppImageUpdate_INCLUDE_DIR appimage/update.h)
+        find_library(AppImageUpdate_LIBRARY NAMES appimageupdate)
+        if(AppImageUpdate_INCLUDE_DIR AND AppImageUpdate_LIBRARY)
+            target_include_directories(faxwerk_gui_lib SYSTEM PRIVATE "${AppImageUpdate_INCLUDE_DIR}")
+            target_link_libraries(faxwerk_gui_lib PUBLIC "${AppImageUpdate_LIBRARY}")
+            target_compile_definitions(faxwerk_gui_lib PRIVATE FAXWERK_HAVE_APPIMAGEUPDATE)
+            message(STATUS "libappimageupdate: ${AppImageUpdate_LIBRARY}")
+        elseif(FAXWERK_APPIMAGEUPDATE STREQUAL "ON")
+            message(FATAL_ERROR "libappimageupdate not found (FAXWERK_APPIMAGEUPDATE=ON)")
+        else()
+            message(STATUS "libappimageupdate: not found, building without AppImage self-update")
+        endif()
+    endif()
+endif()
 
 add_executable(faxwerk_gui WIN32 MACOSX_BUNDLE main.cpp)
 # macOS gets "Faxwerk.app". Elsewhere the GUI is "faxwerk-gui", because

@@ -1,4 +1,5 @@
 #include "AppSettings.h"
+#include "GitHubReleaseUpdater.h"
 #include "Journal.h"
 #include "Messages.h"
 
@@ -25,6 +26,11 @@ private slots:
     void recentRecipients();
     void settingsRoundtrip();
     void settingsFromCommandLineConfig();
+    void releaseVersionCompare_data();
+    void releaseVersionCompare();
+    void releaseParse();
+    void releaseParseRejects_data();
+    void releaseParseRejects();
 };
 
 void TestGuiLogic::normalizeNumber_data()
@@ -245,6 +251,91 @@ void TestGuiLogic::settingsFromCommandLineConfig()
     QCOMPARE(loaded.locations.first().header, QStringLiteral("Example Ltd."));
     QVERIFY(!loaded.locations.first().id.isEmpty());
     QVERIFY(loaded.autoSelect);
+}
+
+void TestGuiLogic::releaseVersionCompare_data()
+{
+    QTest::addColumn<QString>("candidate");
+    QTest::addColumn<QString>("current");
+    QTest::addColumn<bool>("newer");
+    QTest::newRow("patch") << QStringLiteral("v0.1.1") << QStringLiteral("0.1.0") << true;
+    QTest::newRow("same") << QStringLiteral("v0.1.0") << QStringLiteral("0.1.0") << false;
+    QTest::newRow("older") << QStringLiteral("0.0.9") << QStringLiteral("0.1.0") << false;
+    QTest::newRow("numeric, not text") << QStringLiteral("0.10.0") << QStringLiteral("0.9.0") << true;
+    QTest::newRow("shorter") << QStringLiteral("1.0") << QStringLiteral("0.9.9") << true;
+    QTest::newRow("trailing zero") << QStringLiteral("1.0.0") << QStringLiteral("1.0") << false;
+    QTest::newRow("suffix ignored") << QStringLiteral("v0.2.0-rc1") << QStringLiteral("0.1.0") << true;
+    QTest::newRow("no version") << QStringLiteral("latest") << QStringLiteral("0.1.0") << false;
+    QTest::newRow("empty") << QString() << QStringLiteral("0.1.0") << false;
+}
+
+void TestGuiLogic::releaseVersionCompare()
+{
+    QFETCH(QString, candidate);
+    QFETCH(QString, current);
+    QFETCH(bool, newer);
+    QCOMPARE(GitHubReleaseUpdater::isNewerVersion(candidate, current), newer);
+}
+
+static QByteArray releaseJson(const QString &tag, const QString &assets, bool prerelease = false)
+{
+    return QStringLiteral(R"({"tag_name": "%1", "html_url": "https://github.com/o/r/releases/tag/%1",
+        "draft": false, "prerelease": %2, "assets": [%3]})")
+        .arg(tag, prerelease ? QStringLiteral("true") : QStringLiteral("false"), assets)
+        .toUtf8();
+}
+
+static QString assetJson(const QString &name, const QString &digest = QString())
+{
+    return QStringLiteral(R"({"name": "%1", "size": 1234, "digest": "%2",
+        "browser_download_url": "https://github.com/o/r/releases/download/v0.2.0/%1"})")
+        .arg(name, digest);
+}
+
+void TestGuiLogic::releaseParse()
+{
+    const QStringList suffixes = {QStringLiteral("-macos-arm64.pkg"), QStringLiteral("-macos-arm64.dmg")};
+    const QString assets = assetJson(QStringLiteral("Faxwerk-0.2.0-macos-arm64.dmg")) + QLatin1Char(',')
+        + assetJson(QStringLiteral("Faxwerk-0.2.0-windows-x64-setup.exe")) + QLatin1Char(',')
+        + assetJson(QStringLiteral("Faxwerk-0.2.0-macos-arm64.pkg"), QStringLiteral("sha256:ABCDEF01"));
+    QString error;
+    const auto release = GitHubReleaseUpdater::parseRelease(releaseJson(QStringLiteral("v0.2.0"), assets), suffixes,
+                                                            &error);
+    QVERIFY2(release.has_value(), qPrintable(error));
+    QCOMPARE(release->version, QStringLiteral("0.2.0"));
+    // The .pkg is preferred even though the .dmg comes first.
+    QCOMPARE(release->asset.name, QStringLiteral("Faxwerk-0.2.0-macos-arm64.pkg"));
+    QCOMPARE(release->asset.size, qint64(1234));
+    QCOMPARE(release->asset.sha256, QByteArray("abcdef01"));
+    QCOMPARE(release->asset.url.host(), QStringLiteral("github.com"));
+
+    const auto windows = GitHubReleaseUpdater::parseRelease(releaseJson(QStringLiteral("v0.2.0"), assets),
+                                                            {QStringLiteral("-windows-x64-setup.exe")});
+    QVERIFY(windows.has_value());
+    QCOMPARE(windows->asset.name, QStringLiteral("Faxwerk-0.2.0-windows-x64-setup.exe"));
+    QVERIFY(windows->asset.sha256.isEmpty());
+}
+
+void TestGuiLogic::releaseParseRejects_data()
+{
+    QTest::addColumn<QByteArray>("json");
+    const QString pkg = assetJson(QStringLiteral("Faxwerk-0.2.0-macos-arm64.pkg"));
+    QTest::newRow("not json") << QByteArray("<html>");
+    QTest::newRow("no matching asset")
+        << releaseJson(QStringLiteral("v0.2.0"), assetJson(QStringLiteral("Faxwerk-0.2.0-x86_64.AppImage")));
+    QTest::newRow("no version") << releaseJson(QStringLiteral("nightly"), pkg);
+    QTest::newRow("prerelease") << releaseJson(QStringLiteral("v0.2.0"), pkg, true);
+    QTest::newRow("plain http") << releaseJson(QStringLiteral("v0.2.0"),
+                                               QStringLiteral(R"({"name": "Faxwerk-0.2.0-macos-arm64.pkg",
+                                                   "browser_download_url": "http://example.org/x.pkg"})"));
+}
+
+void TestGuiLogic::releaseParseRejects()
+{
+    QFETCH(QByteArray, json);
+    QString error;
+    QVERIFY(!GitHubReleaseUpdater::parseRelease(json, {QStringLiteral("-macos-arm64.pkg")}, &error).has_value());
+    QVERIFY(!error.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestGuiLogic)

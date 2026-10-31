@@ -115,7 +115,7 @@ working tree, runs the tests and packages the result into `out/`:
 | Platform | Command | Result |
 |----------|---------|--------|
 | Windows | `scripts/package-windows.sh` (MSYS2 UCRT64 shell) | `Faxwerk-<version>-windows-x64-setup.exe` |
-| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` |
+| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` and `.pkg` |
 | Linux | `scripts/dev.sh appimage` (dev container) | `Faxwerk-<version>-x86_64.AppImage` |
 
 The version comes from `git describe`. Windows and macOS have no usable spandsp
@@ -176,9 +176,12 @@ brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 scripts/package-macos.sh
 ```
 
-The result is `build/macos/dist/Faxwerk.app` and a disk image. `macdeployqt` copies Qt,
+The result is `build/macos/dist/Faxwerk.app`, a disk image and an installer package
+(`.pkg`, installs the app into `/Applications`). `macdeployqt` copies Qt,
 spandsp and libtiff into the bundle. The command line tool is inside the bundle at
-`Faxwerk.app/Contents/Helpers/faxwerk`. The bundle declares PDF as a document type
+`Faxwerk.app/Contents/Helpers/faxwerk`; the installer package also puts a small
+`/usr/local/bin/faxwerk` script in place that starts it (an existing
+`/usr/local/bin/faxwerk` from elsewhere is left alone). The bundle declares PDF as a document type
 ("Open with" in Finder). It also has the local network usage text that macOS 15 and
 later show before the app may reach the router.
 
@@ -190,6 +193,11 @@ first start of a downloaded copy:
 2. Start it once. macOS refuses to open it.
 3. Go to *Systemeinstellungen › Datenschutz & Sicherheit* and choose *Dennoch öffnen*
    (on macOS 14 a right click on the app › *Öffnen* is enough).
+
+With the installer package (`.pkg`) it works the same way: macOS refuses to open the
+unsigned package, *Dennoch öffnen* in *Datenschutz & Sicherheit* allows it. The installed
+app then starts without a further warning, because the installer sets no quarantine
+flag. With a "Developer ID Installer" certificate, `PKG_SIGN_IDENTITY` signs the package.
 
 Alternatively remove the quarantine flag in the terminal:
 `xattr -dr com.apple.quarantine /Applications/Faxwerk.app`. A copy built on the Mac
@@ -211,18 +219,57 @@ downloads both into `build/appimage/tools` on the first run. The AppImage starts
 desktop app, and the command line tool is in it as `usr/bin/faxwerk`. The container is
 Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
 
-To let [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find new
-versions, pass the update information. The script then also writes a `.zsync` file that
-must be published next to the AppImage:
+The AppImage carries update information for
+[AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate): it looks for new
+versions in the latest GitHub release of this repository
+(`gh-releases-zsync|dschlegel|faxwerk|latest|Faxwerk-*-x86_64.AppImage.zsync`). The script
+also writes a `.zsync` file next to the AppImage; both are attached to the release.
+
+`FAXWERK_UPDATE_INFORMATION` overrides this, e.g. for a fork or your own server, and
+`none` builds without update information:
 
 ```sh
 FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync' \
     scripts/dev.sh appimage
 ```
 
-On GitHub the update information comes from the repository variable
-`FAXWERK_UPDATE_INFORMATION`. Without that variable, it points at the latest release of
-the repository (`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
+On GitHub the repository variable `FAXWERK_UPDATE_INFORMATION` does the same.
+
+The desktop app updates itself with
+[libappimageupdate](https://github.com/AppImageCommunity/AppImageUpdate): a few seconds
+after the start it checks the update information in the background, and when a new
+release is there, an "Update verfügbar" button appears in the top bar. It downloads only
+the changed blocks, puts `Faxwerk-<new version>-x86_64.AppImage` next to the old file,
+removes the old one and offers a restart. The dev container builds libappimageupdate
+from source into `/usr/local`; the CMake option `FAXWERK_APPIMAGEUPDATE` (`AUTO`, `ON`,
+`OFF`) controls whether it is used. Outside an AppImage (`$APPIMAGE` not set) the app
+does not look for updates.
+
+### Updates and releases
+
+The desktop app looks for a new version a few seconds after the start and then shows an
+"Update auf <version>" button in the top bar:
+
+| Platform | How |
+|----------|-----|
+| Linux AppImage | libappimageupdate, see above |
+| Windows | latest GitHub release: downloads `Faxwerk-<version>-windows-x64-setup.exe` and starts it |
+| macOS | latest GitHub release: downloads the `.pkg` (otherwise the `.dmg`) and opens it |
+
+Windows and macOS ask `https://api.github.com/repos/<repository>/releases/latest` and
+compare the tag (`v0.2.0`) with the version of the build, i.e. `project(... VERSION)` in
+`CMakeLists.txt`. The download is checked against the size and the SHA-256 digest GitHub
+lists for the file. The repository is the CMake cache variable `FAXWERK_UPDATE_REPOSITORY`
+(default `dschlegel/faxwerk`, empty disables the check). The environment variable
+`FAXWERK_NO_UPDATE_CHECK` switches the check off on all platforms. The repository must be
+public; drafts and pre-releases are not offered.
+
+A release:
+
+1. Raise `VERSION` in `CMakeLists.txt` (e.g. to `0.2.0`) and merge to `main`.
+2. Tag that commit with the same version and push the tag:
+   `git tag v0.2.0 && git push origin v0.2.0`.
+3. The GitHub workflow builds all packages and publishes them as release `v0.2.0`.
 
 ### Building by hand
 

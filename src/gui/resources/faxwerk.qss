@@ -52,6 +52,26 @@ QPushButton#statusChip:hover {
     background: #e2d2ec;
 }
 
+/* Update chip: a new version of the AppImage is available */
+QPushButton#updateChip {
+    border: none;
+    border-radius: 16px;
+    padding: 0 14px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #7a5a8b;
+    color: #ffffff;
+}
+QPushButton#updateChip:hover {
+    background: #6a4a7b;
+}
+QPushButton#updateChip:disabled {
+    background: #ebe0f0;
+    color: #6b6075;
+}
+
 /* Text */
 QLabel[role="title"] {
     font-size: 36px;
