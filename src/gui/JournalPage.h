@@ -45,6 +45,7 @@ private:
     QListWidget *m_list = nullptr;
     QWidget *m_detailCard = nullptr;
     QLabel *m_detailTitle = nullptr;
+    QLabel *m_detailPill = nullptr;
     QLabel *m_detailText = nullptr;
     QGridLayout *m_facts = nullptr;
     QPushButton *m_resend = nullptr;

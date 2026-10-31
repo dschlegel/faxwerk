@@ -22,9 +22,9 @@ QLabel#productName {
 }
 QPushButton[role="nav"] {
     background: transparent;
-    border: none;
+    border: 2px solid transparent;
     border-radius: 18px;
-    padding: 8px 16px;
+    padding: 6px 14px;
     color: #4f3661;
     font-weight: 500;
     min-height: 20px;
@@ -34,6 +34,9 @@ QPushButton[role="nav"]:hover {
 }
 QPushButton[role="nav"]:checked {
     background: #ebe0f0;
+}
+QPushButton[role="nav"]:disabled {
+    color: #b3a8bb;
 }
 
 /* Status chip: shows the reachable location, click to look again */
@@ -70,6 +73,13 @@ QPushButton#updateChip:hover {
 QPushButton#updateChip:disabled {
     background: #ebe0f0;
     color: #6b6075;
+}
+
+/* Bar below the "Neues Fax" page in narrow windows, holds the send button */
+QFrame#sendFooter {
+    background: #ffffff;
+    border: none;
+    border-top: 1px solid #e2d2ec;
 }
 
 /* Text */
@@ -179,8 +189,10 @@ QPushButton:hover {
 QPushButton:pressed {
     background: #ebe0f0;
 }
+/* Buttons only take the focus from the keyboard (see Theme.cpp), so this is
+   the keyboard focus ring. */
 QPushButton:focus {
-    border-color: #7a5a8b;
+    border-color: #4f3661;
 }
 QPushButton:disabled {
     color: #a99fb1;
@@ -189,7 +201,8 @@ QPushButton:disabled {
 QPushButton[role="primary"] {
     background: #7a5a8b;
     color: #ffffff;
-    border: none;
+    /* Transparent until focused, so the focus ring does not change the size */
+    border: 2px solid transparent;
 }
 QPushButton[role="primary"]:hover {
     background: #6a4a7b;
@@ -198,7 +211,7 @@ QPushButton[role="primary"]:pressed {
     background: #4f3661;
 }
 QPushButton[role="primary"]:focus {
-    border: 2px solid #b9a0c9;
+    border-color: #1f1d24;
 }
 QPushButton[role="primary"]:disabled {
     background: #cbbcd3;
@@ -218,9 +231,12 @@ QPushButton[role="link"] {
     font-weight: 500;
     text-align: left;
 }
-QPushButton[role="link"]:hover {
+QPushButton[role="link"]:hover, QPushButton[role="link"]:focus {
     color: #4f3661;
     text-decoration: underline;
+}
+QPushButton[role="link"]:focus {
+    border: none;
 }
 QPushButton#addPdf {
     min-width: 150px;
@@ -240,7 +256,7 @@ QPushButton#addPdf:hover {
 }
 QPushButton[role="recent"] {
     text-align: left;
-    border: none;
+    border: 2px solid transparent;
     border-radius: 14px;
     padding: 8px 14px;
     background: transparent;
@@ -249,6 +265,9 @@ QPushButton[role="recent"] {
 }
 QPushButton[role="recent"]:hover {
     background: #f5ecf2;
+}
+QPushButton[role="recent"]:focus {
+    border-color: #4f3661;
 }
 QToolButton#disclosure {
     border: none;

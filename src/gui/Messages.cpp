@@ -1,5 +1,7 @@
 #include "Messages.h"
 
+#include <QLocale>
+
 namespace faxwerk::gui {
 
 OutcomeText describeOutcome(FaxStatus status, int sipStatus, int pagesTransferred, int pages)
@@ -95,6 +97,18 @@ QString shortTime(const QDateTime &time, const QDateTime &now)
     if (days == 1)
         return QStringLiteral("gestern");
     return time.toString(QStringLiteral("dd.MM."));
+}
+
+QString dayHeading(const QDate &date, const QDate &today)
+{
+    const qint64 days = date.daysTo(today);
+    if (days == 0)
+        return QStringLiteral("Heute");
+    if (days == 1)
+        return QStringLiteral("Gestern");
+    const QLocale german(QLocale::German, QLocale::Germany);
+    return german.toString(date, date.year() == today.year() ? QStringLiteral("dddd, d. MMMM")
+                                                             : QStringLiteral("dddd, d. MMMM yyyy"));
 }
 
 QString formatDuration(qint64 ms)

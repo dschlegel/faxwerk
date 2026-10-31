@@ -72,6 +72,9 @@ private:
     void savePhonebookEntry(const Contact &original, const QString &name, const QString &number);
     // Update check: Linux AppImage, Windows and macOS (see UpdateService).
     void setUpUpdates(QHBoxLayout *bar);
+    // Menu bar on macOS, the same shortcuts on the window elsewhere.
+    void setUpMenus();
+    void showAbout();
     void installUpdate();
     void onUpdateFinished(bool ok, const QString &error);
     void offerUpdateLaunch();
@@ -103,7 +106,8 @@ private:
     UpdateService *m_updater = nullptr;
     QPushButton *m_updateChip = nullptr;
     QPointer<QProgressDialog> m_updateProgress;
-    QString m_statusText; // the chip shows only its dot in narrow windows
+    QString m_statusText;  // full text of the status chip
+    QString m_statusShort; // shown instead in narrow windows
     QButtonGroup *m_nav = nullptr;
     QPushButton *m_navButtons[4] = {};
     QStackedWidget *m_stack = nullptr;

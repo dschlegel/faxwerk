@@ -21,6 +21,7 @@ private slots:
     void outcomeSeverity_data();
     void outcomeSeverity();
     void shortTime();
+    void dayHeading();
     void formatDuration();
     void journalRoundtrip();
     void recentRecipients();
@@ -91,6 +92,15 @@ void TestGuiLogic::shortTime()
     QCOMPARE(gui::shortTime(QDateTime(QDate(2026, 10, 30), QTime(14, 21)), now), QStringLiteral("14:21"));
     QCOMPARE(gui::shortTime(QDateTime(QDate(2026, 10, 29), QTime(9, 5)), now), QStringLiteral("gestern"));
     QCOMPARE(gui::shortTime(QDateTime(QDate(2026, 10, 26), QTime(9, 5)), now), QStringLiteral("26.10."));
+}
+
+void TestGuiLogic::dayHeading()
+{
+    const QDate today(2026, 10, 30); // a Friday
+    QCOMPARE(gui::dayHeading(today, today), QStringLiteral("Heute"));
+    QCOMPARE(gui::dayHeading(QDate(2026, 10, 29), today), QStringLiteral("Gestern"));
+    QCOMPARE(gui::dayHeading(QDate(2026, 10, 26), today), QStringLiteral("Montag, 26. Oktober"));
+    QCOMPARE(gui::dayHeading(QDate(2025, 12, 31), today), QStringLiteral("Mittwoch, 31. Dezember 2025"));
 }
 
 void TestGuiLogic::formatDuration()

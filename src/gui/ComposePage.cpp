@@ -103,6 +103,7 @@ ComposePage::ComposePage(QWidget *parent)
 
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
     auto *scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -225,7 +226,7 @@ ComposePage::ComposePage(QWidget *parent)
     m_destination->setAccessibleName(QStringLiteral("Faxnummer des Empfängers"));
     right->addWidget(m_destination);
     m_name = new QLineEdit;
-    m_name->setPlaceholderText(QStringLiteral("Name, z. B. Praxis Dr. Berger (optional)"));
+    m_name->setPlaceholderText(QStringLiteral("Name (optional)"));
     m_name->setAccessibleName(QStringLiteral("Name des Empfängers"));
     right->addWidget(m_name);
     m_saveContact = new QPushButton(QStringLiteral("Als Kontakt speichern"));
@@ -258,7 +259,7 @@ ComposePage::ComposePage(QWidget *parent)
     m_recentTitle = makeLabel(QStringLiteral("Zuletzt verwendet"), "muted");
     right->addWidget(m_recentTitle);
     m_recentList = new QVBoxLayout;
-    m_recentList->setSpacing(2);
+    m_recentList->setSpacing(0);
     right->addLayout(m_recentList);
 
     right->addSpacing(8);
@@ -286,15 +287,34 @@ ComposePage::ComposePage(QWidget *parent)
     m_senderBox->hide();
     right->addWidget(m_senderBox);
 
-    right->addStretch(1);
     right->addSpacing(12);
+    // The send button with a line that says what is still missing. In narrow
+    // windows it moves into a bar below the page (see resizeEvent), so it
+    // never scrolls out of view.
+    m_sendArea = new QWidget;
+    auto *sendLayout = new QVBoxLayout(m_sendArea);
+    sendLayout->setContentsMargins(0, 0, 0, 0);
+    sendLayout->setSpacing(8);
+    m_sendHint = makeLabel(QString(), "muted");
+    m_sendHint->setAlignment(Qt::AlignHCenter);
+    sendLayout->addWidget(m_sendHint);
     m_send = new QPushButton(QStringLiteral("Faxen"));
     m_send->setProperty("role", QStringLiteral("primary"));
     m_send->setProperty("size", QStringLiteral("big"));
     m_send->setDefault(true);
-    right->addWidget(m_send);
+    sendLayout->addWidget(m_send);
+    right->addWidget(m_sendArea);
+    m_sendCardLayout = right;
 
-    m_columns->addWidget(sendCard, 0);
+    // Only as tall as its content, so no gap opens above the button.
+    m_columns->addWidget(sendCard, 0, Qt::AlignTop);
+
+    m_footer = new QFrame;
+    m_footer->setObjectName(QStringLiteral("sendFooter"));
+    m_footerLayout = new QHBoxLayout(m_footer);
+    m_footerLayout->setContentsMargins(28, 12, 28, 14);
+    m_footer->hide();
+    outer->addWidget(m_footer);
 
     connect(m_addTile, &QPushButton::clicked, this, &ComposePage::chooseDocuments);
     connect(m_removeAll, &QPushButton::clicked, this, [this] {
@@ -427,12 +447,27 @@ void ComposePage::setRecentRecipients(const QList<Recipient> &recipients)
     }
     m_recentTitle->setVisible(!recipients.isEmpty());
     for (const Recipient &recipient : recipients) {
-        const QString label = recipient.name.isEmpty()
-                                  ? recipient.number
-                                  : QStringLiteral("%1\n%2").arg(recipient.name, recipient.number);
-        auto *button = new QPushButton(label);
+        // Name in the text color, the number smaller and muted below it; rows
+        // without a name show the number alone, at the same height.
+        auto *button = new QPushButton;
         button->setProperty("role", QStringLiteral("recent"));
-        button->setMinimumHeight(recipient.name.isEmpty() ? 44 : 56);
+        button->setFixedHeight(54);
+        button->setAccessibleName(recipient.name.isEmpty()
+                                      ? recipient.number
+                                      : QStringLiteral("%1, %2").arg(recipient.name, recipient.number));
+        auto *rowLayout = new QVBoxLayout(button);
+        rowLayout->setContentsMargins(14, 7, 14, 7);
+        rowLayout->setSpacing(1);
+        auto *main = new QLabel(recipient.name.isEmpty() ? recipient.number : recipient.name);
+        main->setStyleSheet(QStringLiteral("font-weight: 500; background: transparent;"));
+        main->setAttribute(Qt::WA_TransparentForMouseEvents);
+        rowLayout->addWidget(main);
+        if (!recipient.name.isEmpty()) {
+            auto *number = makeLabel(recipient.number, "muted");
+            number->setStyleSheet(QStringLiteral("background: transparent;"));
+            number->setAttribute(Qt::WA_TransparentForMouseEvents);
+            rowLayout->addWidget(number);
+        }
         connect(button, &QPushButton::clicked, this, [this, recipient] {
             m_destination->setText(recipient.number);
             m_name->setText(recipient.name);
@@ -480,6 +515,12 @@ void ComposePage::setDitherDefault(bool dither)
         const QSignalBlocker blocker(m_dither);
         m_dither->setChecked(dither);
     }
+}
+
+void ComposePage::focusRecipient()
+{
+    m_destination->setFocus();
+    m_destination->selectAll();
 }
 
 void ComposePage::chooseDocuments()
@@ -556,6 +597,16 @@ void ComposePage::updateSendButton()
         m_send->setText(QStringLiteral("Faxen"));
     else
         m_send->setText(QStringLiteral("%1 faxen").arg(pagesText(pages)));
+    // Say what is missing instead of only greying out the button.
+    QString hint;
+    if (pages == 0 && !hasNumber)
+        hint = QStringLiteral("PDF hinzufügen und Faxnummer eingeben");
+    else if (pages == 0)
+        hint = QStringLiteral("PDF hinzufügen");
+    else if (!hasNumber)
+        hint = QStringLiteral("Faxnummer eingeben");
+    m_sendHint->setText(hint);
+    m_sendHint->setVisible(!hint.isEmpty());
 }
 
 void ComposePage::dragEnterEvent(QDragEnterEvent *event)
@@ -579,6 +630,14 @@ void ComposePage::resizeEvent(QResizeEvent *event)
     const bool narrow = width() < 860;
     m_columns->setDirection(narrow ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
     m_sendCard->setMaximumWidth(narrow ? QWIDGETSIZE_MAX : 400);
+    // Narrow windows: the send button stays visible in a bar below the page.
+    if (narrow != !m_footer->isHidden()) {
+        if (narrow)
+            m_footerLayout->addWidget(m_sendArea);
+        else
+            m_sendCardLayout->addWidget(m_sendArea);
+        m_footer->setVisible(narrow);
+    }
     QWidget::resizeEvent(event);
 }
 

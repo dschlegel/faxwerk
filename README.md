@@ -341,7 +341,8 @@ faxwerk render --pdf letter.pdf --out letter.tif [--dither]
 line tool. On the first start it opens a short setup in three steps: the routers (IP
 phone credentials with a button that tests the registration, header line and station
 ID), an optional FRITZ!Box user for the phonebook, and the transfer options. After that
-the app has these screens:
+the app has these screens (later, *Einstellungen* shows the same three parts as tabs
+that are saved together):
 
 - **Neues Fax:** PDFs are added with the file dialog, by drag and drop or as command line
   arguments. The pages are shown rasterized the way the recipient will get them. The
@@ -358,6 +359,11 @@ the app has these screens:
   transmission report.
 - **Kontakte:** the phonebooks of the routers, with search. Selected entries can be
   changed, and new ones added; both are saved in the FRITZ!Box.
+
+**Keyboard.** Ctrl+1 to Ctrl+4 (⌘ on macOS) open the four pages, Ctrl+N starts a new fax
+in the number field, Ctrl+O adds a PDF, F5 (⌘R) looks for the reachable location again.
+On macOS the app has a menu bar with these commands, *Einstellungen …* (⌘,) and *Über
+Faxwerk*. The app uses the system font of each platform.
 
 | Sending | Result |
 | --- | --- |
