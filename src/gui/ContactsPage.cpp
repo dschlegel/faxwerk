@@ -1,5 +1,6 @@
 #include "ContactsPage.h"
 
+#include "Theme.h"
 #include "Widgets.h"
 
 #include <QHBoxLayout>
@@ -239,7 +240,7 @@ void ContactsPage::startNew(const QString &name, const QString &number)
 void ContactsPage::setStatus(const QString &text, bool error)
 {
     m_status->setText(text);
-    m_status->setStyleSheet(error ? QStringLiteral("color: #8e2626;") : QString());
+    setThemedStyleSheet(m_status, error ? QStringLiteral("color: @failText;") : QString());
 }
 
 void ContactsPage::showSaveResult(bool ok, const QString &message)

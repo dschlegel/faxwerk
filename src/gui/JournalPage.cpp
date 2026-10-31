@@ -2,6 +2,7 @@
 
 #include "Messages.h"
 #include "SendReport.h"
+#include "Theme.h"
 #include "Widgets.h"
 
 #include <QFileDialog>
@@ -79,7 +80,7 @@ QWidget *makeDayHeading(const QDate &date)
     auto *label = new QLabel(dayHeading(date));
     label->setAttribute(Qt::WA_TransparentForMouseEvents);
     label->setContentsMargins(14, 12, 14, 2);
-    label->setStyleSheet(QStringLiteral("color: #6b6075; font-size: 13px; font-weight: 600; background: transparent;"));
+    setThemedStyleSheet(label, QStringLiteral("color: @muted; font-size: 13px; font-weight: 600; background: transparent;"));
     return label;
 }
 

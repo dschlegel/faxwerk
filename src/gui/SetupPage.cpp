@@ -2,6 +2,7 @@
 
 #include "FritzPhonebook.h"
 #include "Messages.h"
+#include "Theme.h"
 #include "Widgets.h"
 
 #include "sip/SipUserAgent.h"
@@ -283,7 +284,7 @@ SetupPage::SetupPage(QWidget *parent)
     auto *t = new QVBoxLayout(transfer);
     t->setContentsMargins(38, 34, 38, 32);
     t->setSpacing(18);
-    auto *tTitle = new QLabel(QStringLiteral("Übertragung"));
+    auto *tTitle = new QLabel(QStringLiteral("Optionen"));
     tTitle->setProperty("role", QStringLiteral("title"));
     tTitle->setStyleSheet(QStringLiteral("font-size: 32px;"));
     t->addWidget(tTitle);
@@ -297,6 +298,12 @@ SetupPage::SetupPage(QWidget *parent)
     m_dither = new QCheckBox(QStringLiteral("Fotos standardmäßig weich rastern"));
     t->addWidget(m_ecm);
     t->addWidget(m_dither);
+    m_appearance = new QComboBox;
+    m_appearance->addItem(QStringLiteral("Wie das System"), QStringLiteral("system"));
+    m_appearance->addItem(QStringLiteral("Hell"), QStringLiteral("light"));
+    m_appearance->addItem(QStringLiteral("Dunkel"), QStringLiteral("dark"));
+    t->addSpacing(6);
+    t->addLayout(field(QStringLiteral("Darstellung"), m_appearance));
     t->addStretch(1);
     auto *tButtons = new QHBoxLayout;
     tButtons->setSpacing(10);
@@ -405,6 +412,8 @@ void SetupPage::load(const AppSettings &settings, bool firstRun)
     m_rate->setCurrentIndex(settings.maxRate == 14400 ? 1 : 0);
     m_ecm->setChecked(settings.ecm);
     m_dither->setChecked(settings.dither);
+    const int appearance = m_appearance->findData(settings.appearance);
+    m_appearance->setCurrentIndex(appearance >= 0 ? appearance : 0);
     m_bookCurrent = -1;
     m_phonebook->cancel();
     m_settingsMode = !firstRun;
@@ -551,7 +560,7 @@ void SetupPage::showStep(int step)
     // Every step shows its name. In the assistant they are numbered and only
     // indicate the progress; in the settings they are tabs.
     static const QString names[] = {QStringLiteral("Standorte"), QStringLiteral("Telefonbuch"),
-                                    QStringLiteral("Übertragung")};
+                                    QStringLiteral("Optionen")};
     for (int i = 0; i < 3; ++i) {
         QPushButton *pill = m_stepPills[i];
         pill->setText(m_settingsMode ? names[i] : QStringLiteral("%1  %2").arg(i + 1).arg(names[i]));
@@ -559,12 +568,12 @@ void SetupPage::showStep(int step)
         pill->setAttribute(Qt::WA_TransparentForMouseEvents, !m_settingsMode);
         pill->setFocusPolicy(m_settingsMode ? Qt::TabFocus : Qt::NoFocus);
         pill->setCursor(m_settingsMode ? Qt::PointingHandCursor : Qt::ArrowCursor);
-        pill->setStyleSheet(
-            i == step ? QStringLiteral("QPushButton { background: #ffffff; color: #4f3661; border: none; "
+        setThemedStyleSheet(pill,
+            i == step ? QStringLiteral("QPushButton { background: @pillBg; color: @pillText; border: none; "
                                        "border-radius: 14px; min-height: 28px; max-height: 28px; "
                                        "padding: 0 11px; font-size: 13px; font-weight: 600; }"
-                                       "QPushButton:focus { border: 2px solid #e2d2ec; }")
-                      : QStringLiteral("QPushButton { background: transparent; color: #ffffff; "
+                                       "QPushButton:focus { border: 2px solid @primary; }")
+                      : QStringLiteral("QPushButton { background: transparent; color: @onDark; "
                                        "border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 14px; "
                                        "min-height: 26px; max-height: 26px; padding: 0 10px; "
                                        "font-size: 13px; font-weight: 400; }"
@@ -695,6 +704,7 @@ AppSettings SetupPage::collect()
     settings.maxRate = m_rate->currentData().toInt();
     settings.ecm = m_ecm->isChecked();
     settings.dither = m_dither->isChecked();
+    settings.appearance = m_appearance->currentData().toString();
     return settings;
 }
 

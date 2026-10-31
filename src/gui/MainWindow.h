@@ -7,6 +7,7 @@
 #include "Journal.h"
 #include "LocationProbe.h"
 #include "Messages.h"
+#include "Theme.h"
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -45,6 +46,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void changeEvent(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private:
@@ -108,6 +110,7 @@ private:
     QPointer<QProgressDialog> m_updateProgress;
     QString m_statusText;  // full text of the status chip
     QString m_statusShort; // shown instead in narrow windows
+    QColor ThemeColors::*m_statusDot = &ThemeColors::searching;
     QButtonGroup *m_nav = nullptr;
     QPushButton *m_navButtons[4] = {};
     QStackedWidget *m_stack = nullptr;

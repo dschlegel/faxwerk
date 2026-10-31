@@ -2,6 +2,7 @@
 #include "GitHubReleaseUpdater.h"
 #include "Journal.h"
 #include "Messages.h"
+#include "Theme.h"
 
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -22,6 +23,8 @@ private slots:
     void outcomeSeverity();
     void shortTime();
     void dayHeading();
+    void themedStyleSheet();
+    void appearanceNames();
     void formatDuration();
     void journalRoundtrip();
     void recentRecipients();
@@ -101,6 +104,25 @@ void TestGuiLogic::dayHeading()
     QCOMPARE(gui::dayHeading(QDate(2026, 10, 29), today), QStringLiteral("Gestern"));
     QCOMPARE(gui::dayHeading(QDate(2026, 10, 26), today), QStringLiteral("Montag, 26. Oktober"));
     QCOMPARE(gui::dayHeading(QDate(2025, 12, 31), today), QStringLiteral("Mittwoch, 31. Dezember 2025"));
+}
+
+void TestGuiLogic::themedStyleSheet()
+{
+    // Roles become the colors of the current (here: light) theme; unknown
+    // names and plain colors stay as they are.
+    QCOMPARE(gui::themed(QStringLiteral("QLabel { color: @text; background: @primaryHover; border: @nope #123456; }")),
+             QStringLiteral("QLabel { color: #1f1d24; background: #6a4a7b; border: @nope #123456; }"));
+    // Every role has a light and a dark value that differ where it matters.
+    QVERIFY(gui::darkColors().window.lightness() < 64);
+    QVERIFY(gui::lightColors().window.lightness() > 192);
+    QVERIFY(gui::darkColors().text.lightness() > 192);
+}
+
+void TestGuiLogic::appearanceNames()
+{
+    for (auto appearance : {gui::Appearance::System, gui::Appearance::Light, gui::Appearance::Dark})
+        QCOMPARE(gui::appearanceFromName(gui::appearanceName(appearance)), appearance);
+    QCOMPARE(gui::appearanceFromName(QStringLiteral("purple")), gui::Appearance::System);
 }
 
 void TestGuiLogic::formatDuration()

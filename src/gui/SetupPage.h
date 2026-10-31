@@ -115,6 +115,7 @@ private:
     QComboBox *m_rate = nullptr;
     QCheckBox *m_ecm = nullptr;
     QCheckBox *m_dither = nullptr;
+    QComboBox *m_appearance = nullptr;
 };
 
 } // namespace faxwerk::gui

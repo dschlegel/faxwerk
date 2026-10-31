@@ -367,39 +367,40 @@ void MainWindow::setConnection(Connection state, const QString &locationId)
     m_connection = state;
     const Location *location = m_settings.find(locationId);
     const QString name = location ? location->displayName() : QString();
-    QColor dot;
+    QColor ThemeColors::*dot = &ThemeColors::searching;
     QString text;
     QString shortText;
     switch (state) {
     case Connection::NotConfigured:
-        dot = color::warning;
+        dot = &ThemeColors::warning;
         text = QStringLiteral("Nicht eingerichtet");
         shortText = QStringLiteral("Einrichten");
         break;
     case Connection::Searching:
-        dot = QColor(0xb9, 0xa0, 0xc9);
+        dot = &ThemeColors::searching;
         text = QStringLiteral("Standort wird gesucht …");
         shortText = QStringLiteral("Suche …");
         break;
     case Connection::Connected:
         m_connectedId = locationId;
-        dot = color::success;
+        dot = &ThemeColors::success;
         text = QStringLiteral("Verbunden mit %1").arg(name);
         shortText = name;
         break;
     case Connection::Unreachable:
         m_connectedId.clear();
-        dot = color::error;
+        dot = &ThemeColors::error;
         text = QStringLiteral("Keine FRITZ!Box erreichbar");
         shortText = QStringLiteral("Offline");
         break;
     case Connection::Failed:
-        dot = color::error;
+        dot = &ThemeColors::error;
         text = QStringLiteral("Keine Verbindung zu %1").arg(name);
         shortText = QStringLiteral("Keine Verbindung");
         break;
     }
-    m_statusChip->setIcon(dotIcon(dot));
+    m_statusDot = dot;
+    m_statusChip->setIcon(dotIcon(colors().*dot));
     m_statusText = text;
     m_statusShort = shortText;
     updateStatusChip();
@@ -490,6 +491,7 @@ void MainWindow::refreshStatus()
 void MainWindow::applySettings(const AppSettings &settings)
 {
     m_settings = settings;
+    setAppearance(appearanceFromName(settings.appearance));
     m_compose->setLocations(settings.locations, settings.autoSelect ? QString() : settings.preferredId);
     m_compose->setDitherDefault(settings.dither);
 }
@@ -819,6 +821,14 @@ void MainWindow::updateStatusChip()
     m_statusChip->setToolTip(compact ? QStringLiteral("%1. Klicken, um erneut zu suchen.").arg(m_statusText)
                                      : QStringLiteral("Erreichbaren Standort erneut suchen"));
     m_statusChip->setAccessibleName(m_statusText);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    // Light or dark theme switched: repaint the status dot in its new color.
+    if (event->type() == QEvent::PaletteChange && m_statusChip)
+        m_statusChip->setIcon(dotIcon(colors().*m_statusDot));
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

@@ -1,6 +1,7 @@
 #include "ComposePage.h"
 
 #include "Messages.h"
+#include "Theme.h"
 #include "Widgets.h"
 
 #include "document/PdfRasterizer.h"
@@ -55,19 +56,19 @@ public:
         painter->save();
         const bool selected = option.state & QStyle::State_Selected;
         if (selected)
-            painter->fillRect(option.rect, QColor(0xf5, 0xec, 0xf2));
+            painter->fillRect(option.rect, colors().lilacSoft);
         const QRect text = option.rect.adjusted(14, 7, -14, -7);
         QFont nameFont = option.font;
         nameFont.setWeight(QFont::Medium);
         painter->setFont(nameFont);
-        painter->setPen(QColor(0x1f, 0x1d, 0x24));
+        painter->setPen(colors().text);
         const QString name = index.data(kNameRole).toString();
         painter->drawText(text, Qt::AlignLeft | Qt::AlignTop,
                           QFontMetrics(nameFont).elidedText(name, Qt::ElideRight, text.width()));
         QFont detailFont = option.font;
         detailFont.setPixelSize(13);
         painter->setFont(detailFont);
-        painter->setPen(QColor(0x6b, 0x60, 0x75));
+        painter->setPen(colors().muted);
         painter->drawText(text, Qt::AlignLeft | Qt::AlignBottom,
                           QFontMetrics(detailFont).elidedText(index.data(kDetailRole).toString(), Qt::ElideRight,
                                                              text.width()));
@@ -143,7 +144,8 @@ ComposePage::ComposePage(QWidget *parent)
     pagesScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     pagesScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     pagesScroll->setFixedHeight(PageThumbnail::kHeight + 52);
-    pagesScroll->setStyleSheet(QStringLiteral("QScrollArea, QScrollArea > QWidget > QWidget { background: white; }"));
+    setThemedStyleSheet(pagesScroll,
+                        QStringLiteral("QScrollArea, QScrollArea > QWidget > QWidget { background: @surface; }"));
     auto *pagesHost = new QWidget;
     m_pagesRow = new QHBoxLayout(pagesHost);
     m_pagesRow->setContentsMargins(0, 0, 0, 0);

@@ -365,6 +365,14 @@ in the number field, Ctrl+O adds a PDF, F5 (⌘R) looks for the reachable locati
 On macOS the app has a menu bar with these commands, *Einstellungen …* (⌘,) and *Über
 Faxwerk*. The app uses the system font of each platform.
 
+**Dark mode.** The app follows the light or dark mode of the system and switches along
+when it changes (Qt 6.5 or newer; older Qt reads the system palette at start).
+*Einstellungen › Optionen › Darstellung* overrides it with *Hell* or *Dunkel*
+(`gui/appearance` in the configuration file: `system`, `light`, `dark`). The dark
+colors keep the aubergine of the brand on slightly violet surfaces; the page previews
+and the transmission report stay white, as on paper. All colors are roles in
+`src/gui/Theme.cpp` (`ThemeColors`), which the style sheet refers to as `@role`.
+
 | Sending | Result |
 | --- | --- |
 | ![Fax being sent, page 2 of 3](docs/screenshots/senden.png) | ![Fax delivered](docs/screenshots/gesendet.png) |
