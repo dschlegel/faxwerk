@@ -81,6 +81,26 @@ dependencies() {
     otool -L "$1" | tail -n +2 | awk '{ print $1 }' | grep -vx "$(otool -D "$1" | tail -n +2)"
 }
 
+# macdeployqt copies some plugins without the Qt frameworks they need (the
+# virtual keyboard, the SVG icon engine). Faxwerk uses neither: drop plugins
+# whose frameworks are not in the bundle, as Qt couldn't load them anyway.
+drop_incomplete_plugins() {
+    local plugin dep
+    find "$APP/Contents/PlugIns" -name '*.dylib' | while IFS= read -r plugin; do
+        while IFS= read -r dep; do
+            case "$dep" in
+                @rpath/*.framework/*)
+                    if [ ! -e "$FRAMEWORKS/${dep#@rpath/}" ]; then
+                        echo "Removing ${plugin#$APP/} (needs ${dep#@rpath/})"
+                        rm -f "$plugin"
+                        break
+                    fi
+                    ;;
+            esac
+        done < <(dependencies "$plugin")
+    done
+}
+
 bundle_libraries() {
     local changed=1 missing
     while [ "$changed" = 1 ]; do
@@ -104,6 +124,7 @@ bundle_libraries() {
                     install_name_tool -id "@executable_path/../Frameworks/$name" "$FRAMEWORKS/$name" 2>/dev/null
                     changed=1
                 fi
+                echo "Pointing ${file#$APP/} to Frameworks/$name"
                 install_name_tool -change "$dep" "@executable_path/../Frameworks/$name" "$file" 2>/dev/null
             done < <(dependencies "$file")
         done < <(macho_files)
@@ -124,6 +145,7 @@ bundle_libraries() {
     done < <(macho_files)
     [ "$missing" = 0 ] || { echo "error: the app bundle is incomplete" >&2; exit 1; }
 }
+drop_incomplete_plugins
 bundle_libraries
 
 # macdeployqt changes the binaries, which breaks their signatures. Sign
