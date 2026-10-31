@@ -5,12 +5,48 @@
 #include "Theme.h"
 
 #include <QFile>
+#include <QHash>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 
 using namespace faxwerk;
 using namespace faxwerk::gui;
+
+namespace {
+
+// Keychain in memory; `available = false` behaves like a system without one.
+class FakePasswordStore : public PasswordStore
+{
+public:
+    QHash<QString, QString> entries;
+    bool available = true;
+
+    Result read(const QString &key, QString *password, QString *) override
+    {
+        if (!available)
+            return Result::Unavailable;
+        *password = entries.value(key);
+        return entries.contains(key) ? Result::Ok : Result::NotFound;
+    }
+    Result write(const QString &key, const QString &password, QString *error) override
+    {
+        if (!available) {
+            *error = QStringLiteral("no backend");
+            return Result::Unavailable;
+        }
+        entries.insert(key, password);
+        return Result::Ok;
+    }
+    Result remove(const QString &key, QString *) override
+    {
+        if (!available)
+            return Result::Unavailable;
+        return entries.remove(key) ? Result::Ok : Result::NotFound;
+    }
+};
+
+} // namespace
 
 // Non-visual parts of the desktop app: outcome texts, number cleanup, journal.
 class TestGuiLogic : public QObject
@@ -32,6 +68,9 @@ private slots:
     void recentRecipients();
     void settingsRoundtrip();
     void settingsFromCommandLineConfig();
+    void passwordsInKeychain();
+    void passwordsMoveIntoKeychain();
+    void passwordsWithoutKeychain();
     void releaseVersionCompare_data();
     void releaseVersionCompare();
     void releaseParse();
@@ -261,11 +300,11 @@ void TestGuiLogic::settingsRoundtrip()
     settings.ecm = false;
     {
         QSettings ini(path, QSettings::IniFormat);
-        settings.save(ini);
+        QVERIFY(!settings.save(ini, nullptr));
     }
 
     QSettings ini(path, QSettings::IniFormat);
-    const AppSettings loaded = AppSettings::load(ini);
+    const AppSettings loaded = AppSettings::load(ini, nullptr);
     QCOMPARE(loaded.locations.size(), 2);
     QCOMPARE(loaded.locations.at(0).id, freiburg.id);
     QCOMPARE(loaded.locations.at(0).name, QStringLiteral("Freiburg"));
@@ -301,13 +340,121 @@ void TestGuiLogic::settingsFromCommandLineConfig()
         ini.setValue(QStringLiteral("fax/header"), QStringLiteral("Example Ltd."));
     }
     QSettings ini(path, QSettings::IniFormat);
-    const AppSettings loaded = AppSettings::load(ini);
+    const AppSettings loaded = AppSettings::load(ini, nullptr);
     QCOMPARE(loaded.locations.size(), 1);
     QCOMPARE(loaded.locations.first().server, QStringLiteral("fritz.box"));
     QCOMPARE(loaded.locations.first().user, QStringLiteral("faxwerk620"));
     QCOMPARE(loaded.locations.first().header, QStringLiteral("Example Ltd."));
     QVERIFY(!loaded.locations.first().id.isEmpty());
     QVERIFY(loaded.autoSelect);
+    QCOMPARE(loaded.locations.first().password, QStringLiteral("geheim"));
+    QVERIFY(loaded.passwordsInFile);
+}
+
+void TestGuiLogic::passwordsInKeychain()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("faxwerk.ini"));
+    FakePasswordStore store;
+
+    AppSettings settings;
+    Location freiburg = AppSettings::newLocation(QStringLiteral("Freiburg"));
+    freiburg.user = QStringLiteral("faxwerk620");
+    freiburg.password = QStringLiteral("eins");
+    freiburg.phonebookPassword = QStringLiteral("drei");
+    Location offenburg = AppSettings::newLocation(QStringLiteral("Offenburg"));
+    offenburg.user = QStringLiteral("faxwerk621");
+    offenburg.password = QStringLiteral("zwei");
+    settings.locations = {freiburg, offenburg};
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        QString error;
+        QVERIFY(settings.save(ini, &store, &error));
+        QVERIFY(error.isEmpty());
+    }
+
+    // No password in the file, [sip] location= points the command line tool
+    // at the keychain entry.
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray text = file.readAll();
+    QVERIFY(!text.contains("eins"));
+    QVERIFY(!text.contains("zwei"));
+    QVERIFY(!text.contains("drei"));
+    QCOMPARE(store.entries.value(PasswordStore::sipKey(freiburg.id)), QStringLiteral("eins"));
+    QCOMPARE(store.entries.value(PasswordStore::phonebookKey(freiburg.id)), QStringLiteral("drei"));
+    QCOMPARE(store.entries.value(PasswordStore::sipKey(offenburg.id)), QStringLiteral("zwei"));
+    QVERIFY(!store.entries.contains(PasswordStore::phonebookKey(offenburg.id)));
+
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        QCOMPARE(ini.value(QStringLiteral("sip/location")).toString(), freiburg.id);
+        const AppSettings loaded = AppSettings::load(ini, &store);
+        QCOMPARE(loaded.locations.at(0).password, QStringLiteral("eins"));
+        QCOMPARE(loaded.locations.at(0).phonebookPassword, QStringLiteral("drei"));
+        QCOMPARE(loaded.locations.at(1).password, QStringLiteral("zwei"));
+        QVERIFY(!loaded.passwordsInFile);
+        QVERIFY(loaded.isConfigured());
+    }
+
+    // A removed location takes its entries with it.
+    settings.locations = {offenburg};
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        QVERIFY(settings.save(ini, &store));
+    }
+    QCOMPARE(store.entries.size(), 1);
+    QCOMPARE(store.entries.value(PasswordStore::sipKey(offenburg.id)), QStringLiteral("zwei"));
+}
+
+void TestGuiLogic::passwordsMoveIntoKeychain()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("faxwerk.ini"));
+    AppSettings settings;
+    Location location = AppSettings::newLocation(QStringLiteral("Freiburg"));
+    location.user = QStringLiteral("faxwerk620");
+    location.password = QStringLiteral("eins");
+    settings.locations = {location};
+    {
+        QSettings ini(path, QSettings::IniFormat);
+        settings.save(ini, nullptr); // an older version
+    }
+
+    FakePasswordStore store;
+    QSettings ini(path, QSettings::IniFormat);
+    AppSettings loaded = AppSettings::load(ini, &store);
+    QVERIFY(loaded.passwordsInFile);
+    QCOMPARE(loaded.locations.first().password, QStringLiteral("eins"));
+    QVERIFY(loaded.save(ini, &store));
+    QVERIFY(!ini.contains(QStringLiteral("sip/password")));
+    QVERIFY(!ini.contains(QStringLiteral("locations/1/password")));
+    QCOMPARE(store.entries.value(PasswordStore::sipKey(location.id)), QStringLiteral("eins"));
+    QVERIFY(!AppSettings::load(ini, &store).passwordsInFile);
+}
+
+void TestGuiLogic::passwordsWithoutKeychain()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("faxwerk.ini"));
+    FakePasswordStore store;
+    store.available = false;
+    AppSettings settings;
+    Location location = AppSettings::newLocation(QStringLiteral("Freiburg"));
+    location.user = QStringLiteral("faxwerk620");
+    location.password = QStringLiteral("eins");
+    location.phonebookPassword = QStringLiteral("drei");
+    settings.locations = {location};
+
+    QSettings ini(path, QSettings::IniFormat);
+    QString error;
+    QVERIFY(!settings.save(ini, &store, &error));
+    QCOMPARE(error, QStringLiteral("no backend"));
+    QCOMPARE(ini.value(QStringLiteral("sip/password")).toString(), QStringLiteral("eins"));
+    const AppSettings loaded = AppSettings::load(ini, &store);
+    QCOMPARE(loaded.locations.first().password, QStringLiteral("eins"));
+    QCOMPARE(loaded.locations.first().phonebookPassword, QStringLiteral("drei"));
+    QVERIFY(loaded.passwordsInFile);
 }
 
 void TestGuiLogic::releaseVersionCompare_data()

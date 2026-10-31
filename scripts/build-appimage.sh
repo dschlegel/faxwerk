@@ -3,8 +3,10 @@
 # Meant to run inside the dev container: scripts/dev.sh appimage
 #
 # The AppImage contains the desktop app (faxwerk-gui, started by default) and
-# the command line tool. Qt, spandsp, libtiff and libappimageupdate (for the
-# self-update of the desktop app) are bundled by linuxdeploy.
+# the command line tool. Qt, spandsp, libtiff, QtKeychain and libappimageupdate
+# (for the self-update of the desktop app) are bundled by linuxdeploy.
+# QtKeychain loads libsecret of the system at runtime (Secret Service) or
+# talks to KWallet over D-Bus; neither is bundled.
 #
 # Environment:
 #   FAXWERK_UPDATE_INFORMATION  AppImage update information, embedded so that
@@ -55,6 +57,7 @@ cmake -S "$REPO_DIR" -B "$WORK/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DFAXWERK_BUILD_TESTS=OFF \
+    -DFAXWERK_KEYCHAIN=ON \
     -DFAXWERK_APPIMAGEUPDATE="${FAXWERK_APPIMAGEUPDATE:-ON}"
 cmake --build "$WORK/build"
 rm -rf "$APPDIR"

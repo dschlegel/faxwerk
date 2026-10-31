@@ -13,6 +13,8 @@ port=5060
 user=faxwerk620
 ; auth_user=
 ; Prefer the FAXWERK_PASSWORD environment variable over storing it here.
+; The desktop app keeps the password in the system keychain instead and
+; writes location=<id> to find it there.
 ; password=
 ; local_port=5070
 ; display_name=Fax

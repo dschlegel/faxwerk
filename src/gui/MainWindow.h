@@ -80,8 +80,12 @@ private:
     void installUpdate();
     void onUpdateFinished(bool ok, const QString &error);
     void offerUpdateLaunch();
+    // Writes the settings, with the passwords in the keychain if possible.
+    void saveSettings(const AppSettings &settings);
 
     std::unique_ptr<QSettings> m_ini;
+    std::unique_ptr<PasswordStore> m_passwords; // nullptr: built without keychain
+    bool m_keychainWarned = false;
     AppSettings m_settings;
     Journal m_journal;
     ContactStore m_contacts;

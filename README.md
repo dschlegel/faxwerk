@@ -78,7 +78,7 @@ cannot share the LAN this way, so build natively there for real tests (the unit 
 anywhere).
 
 The image is based on `ubuntu:24.04` with `build-essential cmake ninja-build git gdb
-pkg-config qt6-base-dev qt6-pdf-dev libspandsp-dev libtiff-dev`. It also contains
+pkg-config qt6-base-dev qt6-pdf-dev libspandsp-dev libtiff-dev qtkeychain-qt6-dev`. It also contains
 `qt6-qpa-plugins` and `fonts-dejavu-core` (offscreen platform and fonts for `QPdfWriter`
 in the tests), `libtiff-tools` for debugging, and the autotools that upstream spandsp needs.
 
@@ -134,7 +134,7 @@ then in the *MSYS2 UCRT64* shell:
 
 ```sh
 pacman -S --needed git make which diffutils autoconf automake libtool \
-    mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
+    mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf,qtkeychain-qt6}
 scripts/package-windows.sh
 ```
 
@@ -172,7 +172,7 @@ installer. Disk and SSH key live in `~/.local/share/faxwerk-windows-vm`.
 Install Homebrew and the Xcode command line tools (`xcode-select --install`), then:
 
 ```sh
-brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
+brew install qt qtkeychain libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 scripts/package-macos.sh
 ```
 
@@ -419,7 +419,20 @@ changed, the app reads the entry from the router, replaces the name and that one
 and writes it back, so the entry's other numbers, e-mail addresses and speed dials stay.
 New contacts go to the main phonebook (ID 0) of the location found last.
 
-The app stores the SIP and phonebook passwords in the INI file. The colors follow
+**Passwords.** The app keeps the SIP and phonebook passwords in the keychain of the
+system (with [QtKeychain](https://github.com/frankosterfeld/qtkeychain)): the Windows
+Credential Manager, the macOS Keychain, or on Linux the Secret Service (GNOME Keyring,
+KeePassXC) or KWallet. The entries are under the service `Faxwerk`, named
+`<location id>/sip` and `<location id>/phonebook`. Passwords that an older version wrote
+into the INI file move into the keychain at the next start. Only when there is no keychain
+(e.g. a Linux desktop without Secret Service) the app writes them into the INI file as
+before and says so when saving. A build without QtKeychain (`-DFAXWERK_KEYCHAIN=OFF`, or
+`AUTO` when it is not found) always uses the INI file; the packages are built with
+`FAXWERK_KEYCHAIN=ON`. On macOS the command line tool is a different program than the app,
+so the Keychain asks once whether it may read the entry (*Immer erlauben*); with the
+ad-hoc signed packages it may ask again after an update.
+
+The colors follow
 the Sonara practice website (aubergine `#7a5a8b` on cream `#faf5f0`). The font list starts
 with DM Sans and falls back to the system font when DM Sans is not installed.
 
@@ -437,7 +450,8 @@ faxwerk render --pdf <file> [--pdf ...] --out <file.tif> [--dither]
 ```
 
 - Faxwerk takes the password from `--password`, then the `FAXWERK_PASSWORD` environment
-  variable, then the INI file. If none of these is set and stdin is a terminal, it asks for
+  variable, then the INI file, then the keychain entry the desktop app wrote for the location
+  in `[sip] location=`. If none of these is set and stdin is a terminal, it asks for
   the password (without echo). `--password` is visible in the process list, so use the
   environment variable. Passwords are never logged.
 - `--ident` is the station ID (TSI, at most 20 characters) and `--header` the page header line
@@ -506,7 +520,7 @@ upstream spandsp.
 | `tst_rtpsession` | accelerated pacing, gap concealment, late packets, SSRC change |
 | `tst_pdfrasterizer` | 3-page PDF from `QPdfWriter` → 3-page TIFF, 1728 px, 204×196 dpi, landscape rotation |
 | `tst_faxloopback` | two FaxEngines back to back: 3 pages with ECM, without ECM, and at V.17 |
-| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip, recent recipients, locations in the INI file (with phonebook access) and migration from a CLI configuration |
+| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip, recent recipients, locations in the INI file (with phonebook access) and migration from a CLI configuration, passwords in a keychain (fake store): not in the INI file, moved there from an older INI file, removed with their location, INI file without a keychain |
 | `tst_contacts` | FRITZ!Box phonebook XML (fax numbers first, no mobile or internal numbers), search by name and by number in national or international form, entry editing that keeps the rest of the entry, the phonebook cache; reading, changing and adding entries against a TR-064 mock with digest authentication, wrong password, missing write right, unreachable router |
 | `tst_locationprobe` | location selection against several `MockFritzBox` instances: unreachable and wrong-password locations are skipped, list order wins, probes unregister again |
 | `tst_endtoend` | full `FaxJob` against `MockFritzBox` (401 on REGISTER, 407 on INVITE, independent digest check, ACK rules, duplicate 200 OK, RTP at 2 ms packets, BYE from the mock); T.38 re-INVITE → 488; wrong password; busy |

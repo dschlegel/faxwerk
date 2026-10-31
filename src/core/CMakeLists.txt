@@ -3,6 +3,8 @@ configure_file(ProductInfo.h.in "${CMAKE_CURRENT_BINARY_DIR}/ProductInfo.h" @ONL
 add_library(faxwerk_core STATIC
     FaxJob.cpp
     FaxJob.h
+    config/PasswordStore.cpp
+    config/PasswordStore.h
     document/FaxTiff.cpp
     document/FaxTiff.h
     document/PdfRasterizer.cpp
@@ -46,5 +48,10 @@ target_compile_definitions(faxwerk_core PRIVATE
     FAXWERK_SPANDSP_NEW_API=$<BOOL:${FAXWERK_SPANDSP_NEW_API}>
     FAXWERK_SPANDSP_LOG_USER_DATA=$<BOOL:${FAXWERK_SPANDSP_LOG_USER_DATA}>
     QT_NO_CAST_FROM_ASCII)
+
+if(FAXWERK_HAVE_KEYCHAIN)
+    target_link_libraries(faxwerk_core PRIVATE Qt6Keychain::Qt6Keychain)
+    target_compile_definitions(faxwerk_core PRIVATE FAXWERK_HAVE_KEYCHAIN)
+endif()
 
 faxwerk_set_warnings(faxwerk_core)

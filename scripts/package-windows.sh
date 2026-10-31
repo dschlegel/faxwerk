@@ -3,7 +3,7 @@
 # with these packages installed:
 #
 #   pacman -S --needed git make which diffutils autoconf automake libtool \
-#       mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
+#       mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf,qtkeychain-qt6}
 #
 # Output in out/:
 #   Faxwerk-<version>-windows-x64-setup.exe   installer (needs Inno Setup 6)
@@ -43,6 +43,7 @@ export PATH="$SPANDSP_PREFIX/bin:$PATH"
 cmake -S "$REPO_DIR" -B "$WORK/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="$SPANDSP_PREFIX" \
+    -DFAXWERK_KEYCHAIN=ON \
     -DCMAKE_INSTALL_PREFIX="$WORK/install"
 cmake --build "$WORK/build"
 if [ "${SKIP_TESTS:-0}" != "1" ]; then

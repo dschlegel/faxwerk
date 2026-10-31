@@ -2,6 +2,7 @@
 
 #include "ProductInfo.h"
 
+#include <QSet>
 #include <QUuid>
 
 namespace faxwerk::gui {
@@ -13,6 +14,31 @@ quint16 portValue(const QVariant &value, quint16 fallback)
     const uint port = value.toUInt();
     return port > 0 && port <= 65535 ? quint16(port) : fallback;
 }
+
+// Reads passwords from the keychain; after the first error that says there is
+// no keychain, it doesn't ask again.
+class PasswordReader
+{
+public:
+    explicit PasswordReader(PasswordStore *store) : m_store(store) {}
+
+    QString read(const QString &key)
+    {
+        if (!m_store)
+            return QString();
+        QString password;
+        QString error;
+        const PasswordStore::Result result = m_store->read(key, &password, &error);
+        if (result == PasswordStore::Result::Unavailable)
+            m_store = nullptr;
+        if (result == PasswordStore::Result::Unavailable || result == PasswordStore::Result::Failed)
+            qWarning("Cannot read %s from the keychain: %s", qPrintable(key), qPrintable(error));
+        return password;
+    }
+
+private:
+    PasswordStore *m_store;
+};
 
 } // namespace
 
@@ -64,9 +90,10 @@ Location AppSettings::newLocation(const QString &name)
     return location;
 }
 
-AppSettings AppSettings::load(QSettings &ini)
+AppSettings AppSettings::load(QSettings &ini, PasswordStore *passwords)
 {
     AppSettings s;
+    PasswordReader keychain(passwords);
     s.displayName = ini.value(QStringLiteral("sip/display_name")).toString();
     s.localPort = portValue(ini.value(QStringLiteral("sip/local_port")), 0);
     s.expires = ini.value(QStringLiteral("sip/expires"), s.expires).toInt();
@@ -98,6 +125,12 @@ AppSettings AppSettings::load(QSettings &ini)
         location.header = ini.value(QStringLiteral("header")).toString().left(50);
         location.phonebookUser = ini.value(QStringLiteral("phonebook_user")).toString();
         location.phonebookPassword = ini.value(QStringLiteral("phonebook_password")).toString();
+        if (!location.password.isEmpty() || !location.phonebookPassword.isEmpty())
+            s.passwordsInFile = true;
+        if (location.password.isEmpty())
+            location.password = keychain.read(PasswordStore::sipKey(location.id));
+        if (location.phonebookPassword.isEmpty())
+            location.phonebookPassword = keychain.read(PasswordStore::phonebookKey(location.id));
         s.locations.append(location);
     }
     ini.endArray();
@@ -114,6 +147,7 @@ AppSettings AppSettings::load(QSettings &ini)
         location.password = ini.value(QStringLiteral("sip/password")).toString();
         location.ident = ini.value(QStringLiteral("fax/ident")).toString().left(20);
         location.header = ini.value(QStringLiteral("fax/header")).toString().left(50);
+        s.passwordsInFile = !location.password.isEmpty();
         s.locations.append(location);
     }
     if (!s.locations.isEmpty() && s.locations.first().password.isEmpty())
@@ -121,8 +155,50 @@ AppSettings AppSettings::load(QSettings &ini)
     return s;
 }
 
-void AppSettings::save(QSettings &ini) const
+bool AppSettings::save(QSettings &ini, PasswordStore *passwords, QString *error) const
 {
+    if (error)
+        error->clear();
+    QSet<QString> oldIds;
+    const int oldCount = ini.beginReadArray(QStringLiteral("locations"));
+    for (int i = 0; i < oldCount; ++i) {
+        ini.setArrayIndex(i);
+        oldIds.insert(ini.value(QStringLiteral("id")).toString());
+    }
+    ini.endArray();
+
+    // Into the keychain first: if that fails, the passwords go into the INI
+    // file, so that none is lost.
+    bool inKeychain = passwords != nullptr;
+    if (passwords) {
+        auto store = [&](const QString &key, const QString &password) {
+            if (password.isEmpty()) {
+                passwords->remove(key);
+                return true;
+            }
+            QString why;
+            if (passwords->write(key, password, &why) == PasswordStore::Result::Ok)
+                return true;
+            if (error)
+                *error = why.isEmpty() ? QStringLiteral("no keychain available") : why;
+            return false;
+        };
+        for (const Location &location : locations) {
+            oldIds.remove(location.id);
+            if (!store(PasswordStore::sipKey(location.id), location.password)
+                || !store(PasswordStore::phonebookKey(location.id), location.phonebookPassword)) {
+                inKeychain = false;
+                break;
+            }
+        }
+        if (inKeychain) {
+            for (const QString &id : std::as_const(oldIds)) {
+                passwords->remove(PasswordStore::sipKey(id));
+                passwords->remove(PasswordStore::phonebookKey(id));
+            }
+        }
+    }
+
     ini.remove(QStringLiteral("locations"));
     ini.beginWriteArray(QStringLiteral("locations"), int(locations.size()));
     for (int i = 0; i < locations.size(); ++i) {
@@ -135,11 +211,13 @@ void AppSettings::save(QSettings &ini) const
         ini.setValue(QStringLiteral("domain"), location.domain);
         ini.setValue(QStringLiteral("user"), location.user);
         ini.setValue(QStringLiteral("auth_user"), location.authUser);
-        ini.setValue(QStringLiteral("password"), location.password);
+        if (!inKeychain)
+            ini.setValue(QStringLiteral("password"), location.password);
         ini.setValue(QStringLiteral("ident"), location.ident);
         ini.setValue(QStringLiteral("header"), location.header);
         ini.setValue(QStringLiteral("phonebook_user"), location.phonebookUser);
-        ini.setValue(QStringLiteral("phonebook_password"), location.phonebookPassword);
+        if (!inKeychain)
+            ini.setValue(QStringLiteral("phonebook_password"), location.phonebookPassword);
     }
     ini.endArray();
 
@@ -148,7 +226,12 @@ void AppSettings::save(QSettings &ini) const
         ini.setValue(QStringLiteral("sip/server"), first.server);
         ini.setValue(QStringLiteral("sip/port"), first.port);
         ini.setValue(QStringLiteral("sip/user"), first.user);
-        ini.setValue(QStringLiteral("sip/password"), first.password);
+        // The command line tool finds the password under this location's key.
+        ini.setValue(QStringLiteral("sip/location"), first.id);
+        if (inKeychain)
+            ini.remove(QStringLiteral("sip/password"));
+        else
+            ini.setValue(QStringLiteral("sip/password"), first.password);
         ini.setValue(QStringLiteral("fax/ident"), first.ident);
         ini.setValue(QStringLiteral("fax/header"), first.header);
         if (first.domain.isEmpty())
@@ -167,6 +250,7 @@ void AppSettings::save(QSettings &ini) const
     ini.setValue(QStringLiteral("gui/location"), preferredId);
     ini.setValue(QStringLiteral("gui/appearance"), appearance);
     ini.sync();
+    return inKeychain;
 }
 
 std::unique_ptr<QSettings> AppSettings::openDefault()

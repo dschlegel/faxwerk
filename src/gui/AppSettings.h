@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config/PasswordStore.h"
 #include "sip/SipUserAgent.h"
 
 #include <QList>
@@ -39,7 +40,12 @@ struct Location
 //
 // Locations are stored as the INI array [locations]. The first location is
 // also written to [sip] and [fax], the keys the command line tool reads, so
-// both share one configuration.
+// both share one configuration; [sip] location= names it.
+//
+// The passwords go into a PasswordStore (the system keychain) under
+// PasswordStore::sipKey() and phonebookKey(). Only without a keychain, or
+// when it fails, they are written to the INI file (password=,
+// phonebook_password=, [sip] password=).
 struct AppSettings
 {
     QList<Location> locations;
@@ -60,14 +66,23 @@ struct AppSettings
     // [job]
     int timeoutSeconds = 900;
 
+    // Not stored: load() found passwords in the INI file. save() moves them
+    // into the keychain.
+    bool passwordsInFile = false;
+
     bool isConfigured() const;
     const Location *find(const QString &id) const;
     QList<Location> completeLocations() const;
     SipAccount account(const Location &location) const;
 
     static Location newLocation(const QString &name);
-    static AppSettings load(QSettings &ini);
-    void save(QSettings &ini) const;
+    // Passwords in the INI file win over the keychain; `passwords` may be
+    // nullptr (INI file only).
+    static AppSettings load(QSettings &ini, PasswordStore *passwords);
+    // Writes the passwords into `passwords` and leaves them out of the INI
+    // file. Returns false when they went into the INI file instead: without
+    // a store, or when it could not store them (*error says why).
+    bool save(QSettings &ini, PasswordStore *passwords, QString *error = nullptr) const;
 
     // The file the command line tool reads by default.
     static std::unique_ptr<QSettings> openDefault();

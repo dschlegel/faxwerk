@@ -2,7 +2,7 @@
 # Builds Faxwerk.app for macOS and packages it as a disk image and as an
 # installer package. Needs Homebrew and the Xcode command line tools:
 #
-#   brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
+#   brew install qt qtkeychain libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 #
 # Output in out/:
 #   Faxwerk-<version>-macos-<arch>.dmg   app to drag to /Applications
@@ -32,6 +32,7 @@ OUT_DIR="${OUT_DIR:-$REPO_DIR/out}"
 SPANDSP_PREFIX="${SPANDSP_PREFIX:-$REPO_DIR/build/spandsp/prefix}"
 QT_PREFIX="${QT_PREFIX:-$(brew --prefix qt)}"
 TIFF_PREFIX="$(brew --prefix libtiff)"
+KEYCHAIN_PREFIX="$(brew --prefix qtkeychain)"
 ARCH="$(uname -m)"
 
 VERSION="${FAXWERK_VERSION:-$(git -C "$REPO_DIR" describe --tags --always --dirty 2>/dev/null || echo dev)}"
@@ -42,7 +43,8 @@ VERSION="${VERSION#v}"
 
 cmake -S "$REPO_DIR" -B "$WORK/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_PREFIX_PATH="$QT_PREFIX;$TIFF_PREFIX;$SPANDSP_PREFIX"
+    -DCMAKE_PREFIX_PATH="$QT_PREFIX;$TIFF_PREFIX;$KEYCHAIN_PREFIX;$SPANDSP_PREFIX" \
+    -DFAXWERK_KEYCHAIN=ON
 cmake --build "$WORK/build"
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
     ctest --test-dir "$WORK/build" --output-on-failure
