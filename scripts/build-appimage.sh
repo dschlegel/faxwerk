@@ -7,10 +7,10 @@
 #
 # Environment:
 #   FAXWERK_UPDATE_INFORMATION  AppImage update information, embedded so that
-#                               AppImageUpdate can fetch new versions, e.g.
-#                                 zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync
-#                                 gh-releases-zsync|owner|repo|latest|Faxwerk-*-x86_64.AppImage.zsync
-#                               Unset: no update information, no .zsync file.
+#                               AppImageUpdate can fetch new versions. Default:
+#                                 gh-releases-zsync|dschlegel|faxwerk|latest|Faxwerk-*-x86_64.AppImage.zsync
+#                               (the latest GitHub release of dschlegel/faxwerk).
+#                               "none": no update information, no .zsync file.
 #   FAXWERK_APPIMAGE_VERSION    version in the file name (default: git describe)
 #   OUT_DIR                     output directory (default: out/)
 #   LINUXDEPLOY_URL, LINUXDEPLOY_QT_URL
@@ -30,6 +30,8 @@ LINUXDEPLOY_QT_URL="${LINUXDEPLOY_QT_URL:-https://github.com/linuxdeploy/linuxde
 VERSION="${FAXWERK_APPIMAGE_VERSION:-$(git -C "$REPO_DIR" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 VERSION="${VERSION#v}"
 OUTPUT="Faxwerk-$VERSION-$ARCH.AppImage"
+DEFAULT_UPDATE_INFORMATION="gh-releases-zsync|dschlegel|faxwerk|latest|Faxwerk-*-$ARCH.AppImage.zsync"
+UPDATE_INFO="${FAXWERK_UPDATE_INFORMATION:-$DEFAULT_UPDATE_INFORMATION}"
 
 # --- Tools -------------------------------------------------------------------------
 mkdir -p "$TOOLS"
@@ -64,13 +66,13 @@ export EXTRA_PLATFORM_PLUGINS="libqoffscreen.so"
 export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
 export LDAI_OUTPUT="$OUTPUT"
 export OUTPUT
-if [ -n "${FAXWERK_UPDATE_INFORMATION:-}" ]; then
-    export LDAI_UPDATE_INFORMATION="$FAXWERK_UPDATE_INFORMATION"
-    export UPDATE_INFORMATION="$FAXWERK_UPDATE_INFORMATION"
-    echo "Update information: $FAXWERK_UPDATE_INFORMATION"
+if [ "$UPDATE_INFO" != none ]; then
+    export LDAI_UPDATE_INFORMATION="$UPDATE_INFO"
+    export UPDATE_INFORMATION="$UPDATE_INFO"
+    echo "Update information: $UPDATE_INFO"
 else
     unset LDAI_UPDATE_INFORMATION UPDATE_INFORMATION
-    echo "No update information set (FAXWERK_UPDATE_INFORMATION); building without .zsync"
+    echo "Update information disabled (FAXWERK_UPDATE_INFORMATION=none); building without .zsync"
 fi
 
 mkdir -p "$OUT_DIR"

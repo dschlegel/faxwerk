@@ -7,11 +7,12 @@
 #     macOS:   Faxwerk-<version>-macos-arm64.dmg (ad-hoc signed, not notarized)
 # - Tags "v*" (e.g. v0.2.0): additionally a GitHub release with all of them.
 #
-# AppImage update information (for AppImageUpdate): set the repository
-# variable FAXWERK_UPDATE_INFORMATION (Settings > Secrets and variables >
-# Actions > Variables), for example
-#   zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync
-# Without it, the AppImage points at the latest release of this repository.
+# AppImage update information (for AppImageUpdate): the AppImage points at
+# the latest release of dschlegel/faxwerk
+#   gh-releases-zsync|dschlegel|faxwerk|latest|Faxwerk-*-x86_64.AppImage.zsync
+# (default in scripts/build-appimage.sh). The repository variable
+# FAXWERK_UPDATE_INFORMATION (Settings > Secrets and variables > Actions >
+# Variables) overrides it; "none" builds without update information.
 name: Build
 
 on:
@@ -45,7 +46,7 @@ jobs:
 
       - name: Build AppImage
         env:
-          FAXWERK_UPDATE_INFORMATION: ${{ vars.FAXWERK_UPDATE_INFORMATION || format('gh-releases-zsync|{0}|{1}|latest|Faxwerk-*-x86_64.AppImage.zsync', github.repository_owner, github.event.repository.name) }}
+          FAXWERK_UPDATE_INFORMATION: ${{ vars.FAXWERK_UPDATE_INFORMATION }}
         run: scripts/dev.sh appimage
 
       - uses: actions/upload-artifact@v4

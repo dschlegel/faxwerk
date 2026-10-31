@@ -211,18 +211,21 @@ downloads both into `build/appimage/tools` on the first run. The AppImage starts
 desktop app, and the command line tool is in it as `usr/bin/faxwerk`. The container is
 Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
 
-To let [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find new
-versions, pass the update information. The script then also writes a `.zsync` file that
-must be published next to the AppImage:
+The AppImage carries update information for
+[AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate): it looks for new
+versions in the latest GitHub release of this repository
+(`gh-releases-zsync|dschlegel|faxwerk|latest|Faxwerk-*-x86_64.AppImage.zsync`). The script
+also writes a `.zsync` file next to the AppImage; both are attached to the release.
+
+`FAXWERK_UPDATE_INFORMATION` overrides this, e.g. for a fork or your own server, and
+`none` builds without update information:
 
 ```sh
 FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync' \
     scripts/dev.sh appimage
 ```
 
-On GitHub the update information comes from the repository variable
-`FAXWERK_UPDATE_INFORMATION`. Without that variable, it points at the latest release of
-the repository (`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
+On GitHub the repository variable `FAXWERK_UPDATE_INFORMATION` does the same.
 
 ### Building by hand
 
