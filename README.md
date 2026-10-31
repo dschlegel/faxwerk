@@ -172,7 +172,7 @@ installer. Disk and SSH key live in `~/.local/share/faxwerk-windows-vm`.
 Install Homebrew and the Xcode command line tools (`xcode-select --install`), then:
 
 ```sh
-brew install qt libtiff autoconf automake libtool ninja pkgconf cmake
+brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 scripts/package-macos.sh
 ```
 
@@ -196,7 +196,7 @@ Alternatively remove the quarantine flag in the terminal:
 itself with `scripts/package-macos.sh` has no quarantine flag and starts directly.
 
 The GitHub build runs on Apple Silicon with Homebrew's libraries, so that disk image
-needs an Apple Silicon Mac with macOS 14 or newer. For an Intel Mac, run the script on
+needs an Apple Silicon Mac with macOS 15 or newer. For an Intel Mac or an older macOS, run the script on
 that Mac.
 
 ### Linux AppImage

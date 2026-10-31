@@ -97,19 +97,19 @@ jobs:
           if-no-files-found: error
 
   macos:
-    runs-on: macos-14 # Apple Silicon; the app needs macOS 14 or newer
+    runs-on: macos-15 # Apple Silicon; the app needs macOS 15 or newer
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Install dependencies
-        run: brew install qt libtiff autoconf automake libtool ninja pkgconf
+        run: brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf
 
       - uses: actions/cache@v4
         with:
           path: build/spandsp/prefix
-          key: spandsp-macos14-arm64-${{ env.SPANDSP_REF }}
+          key: spandsp-macos15-arm64-${{ env.SPANDSP_REF }}
 
       - name: Build, test and package
         run: scripts/package-macos.sh
