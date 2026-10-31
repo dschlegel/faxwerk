@@ -76,6 +76,7 @@ while true; do
 done
 
 cp "$REPO_DIR/README.md" "$DIST/README.md"
+cp "$REPO_DIR/LICENSE" "$DIST/LICENSE.txt"
 echo "Program folder: $DIST"
 
 # --- Installer -------------------------------------------------------------------------

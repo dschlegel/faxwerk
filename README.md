@@ -460,7 +460,12 @@ upstream spandsp.
 
 ## Licensing
 
-Faxwerk's own source code is not yet under a license. spandsp is LGPL-2.1 and is **linked
-dynamically**. Qt is used under the LGPL (dynamic linking). libtiff uses a BSD-style
-license. Faxwerk does not use PJSIP or any other GPL SIP stack; the SIP implementation is
-its own.
+Faxwerk is free software under the [GNU General Public License, version 3 or any later
+version](LICENSE) (`GPL-3.0-or-later`). Copyright © 2026 Daniel Schlegel.
+
+The libraries keep their own licenses: spandsp is LGPL-2.1 and Qt is used under the
+LGPL-3, both linked dynamically. libtiff uses a BSD-style license; the libtiff of the
+packages also brings jbigkit (GPL-2.0-or-later) and other libraries under free licenses.
+All of them can be combined with the GPL-3.0. The SIP implementation is Faxwerk's own.
+The packages include the license text (`LICENSE.txt` on Windows and macOS,
+`usr/share/doc/faxwerk/LICENSE` in the AppImage).

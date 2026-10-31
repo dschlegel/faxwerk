@@ -105,4 +105,5 @@ if(UNIX AND NOT APPLE)
         DESTINATION share/applications)
     install(FILES "${PROJECT_SOURCE_DIR}/packaging/linux/faxwerk.svg"
         DESTINATION share/icons/hicolor/scalable/apps)
+    install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION share/doc/faxwerk)
 endif()
