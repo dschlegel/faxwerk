@@ -4,6 +4,7 @@
 #include "Messages.h"
 #include "Theme.h"
 
+#include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -25,6 +26,7 @@ private slots:
     void dayHeading();
     void themedStyleSheet();
     void appearanceNames();
+    void colorFile();
     void formatDuration();
     void journalRoundtrip();
     void recentRecipients();
@@ -120,6 +122,24 @@ void TestGuiLogic::themedStyleSheet()
     QVERIFY(gui::contrastColors().window.lightness() < gui::darkColors().window.lightness());
     QCOMPARE(gui::contrastColors().text, QColor(Qt::white));
     QVERIFY(gui::contrastColors().onPrimary.lightness() < 64);
+}
+
+void TestGuiLogic::colorFile()
+{
+    // The shipped colors.ini names every role in every section.
+    QFile file(QStringLiteral(":/faxwerk/colors.ini"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QStringList errors = gui::checkColorFile(QString::fromUtf8(file.readAll()));
+    QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+
+    // Broken files are reported line by line, missing roles per section.
+    const QStringList broken = gui::checkColorFile(QStringLiteral("[light]\nwindow = #faf5f0 ; ok\n"
+                                                                  "surface = white\nnosuchrole = #000000\n"));
+    QVERIFY(broken.contains(QStringLiteral("colors.ini:3: surface = white")));
+    QVERIFY(broken.contains(QStringLiteral("colors.ini:4: nosuchrole = #000000")));
+    QVERIFY(broken.contains(QStringLiteral("colors.ini: [light] has no text")));
+    QVERIFY(broken.contains(QStringLiteral("colors.ini: [dark] has no window")));
+    QVERIFY(!broken.contains(QStringLiteral("colors.ini: [light] has no window")));
 }
 
 void TestGuiLogic::appearanceNames()

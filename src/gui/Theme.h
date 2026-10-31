@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QString>
+#include <QStringList>
 
 class QApplication;
 class QWidget;
@@ -11,7 +12,8 @@ namespace faxwerk::gui {
 // Color roles of the interface in three sets: light, dark ("Aubergine": the
 // aubergine and lilac of the brand on dark, slightly violet surfaces) and high
 // contrast (white text on near black, bright lilac actions with dark text).
-// faxwerk.qss and inline style sheets name them as @role (see themed()).
+// The values are in resources/colors.ini, one section per set; faxwerk.qss
+// and inline style sheets name them as @role (see themed()).
 struct ThemeColors
 {
     QColor window;          // page background
@@ -57,6 +59,9 @@ enum class Appearance { System, Light, Dark, HighContrast };
 const ThemeColors &lightColors();
 const ThemeColors &darkColors();
 const ThemeColors &contrastColors();
+// Problems in the text of a colors.ini: lines that cannot be read and roles a
+// section leaves out. Empty when the file is complete.
+QStringList checkColorFile(const QString &text);
 // The colors in use now.
 const ThemeColors &colors();
 bool isDarkTheme(); // dark or high contrast

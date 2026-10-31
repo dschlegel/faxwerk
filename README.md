@@ -373,8 +373,11 @@ Kontrast* (`gui/appearance` in the configuration file: `system`, `light`, `dark`
 bright lilac actions with dark text; following the system, the app uses it in dark mode
 when the system asks for more contrast (Qt 6.10 or newer). The dark
 colors keep the aubergine of the brand on slightly violet surfaces; the page previews
-and the transmission report stay white, as on paper. All colors are roles in
-`src/gui/Theme.cpp` (`ThemeColors`), which the style sheet refers to as `@role`.
+and the transmission report stay white, as on paper. All colors are in
+`src/gui/resources/colors.ini`, one section per appearance (`[light]`, `[dark]`,
+`[contrast]`); the style sheet `faxwerk.qss` refers to them as `@name`, e.g.
+`background: @surface;`. To change a color, edit it there and rebuild; `tst_guilogic`
+checks that every section names every color.
 
 | Sending | Result |
 | --- | --- |

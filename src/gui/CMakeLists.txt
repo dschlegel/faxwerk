@@ -41,7 +41,7 @@ add_library(faxwerk_gui_lib STATIC
 qt_add_resources(faxwerk_gui_lib "faxwerk_gui_resources"
     PREFIX "/faxwerk"
     BASE resources
-    FILES resources/faxwerk.qss)
+    FILES resources/faxwerk.qss resources/colors.ini)
 
 target_include_directories(faxwerk_gui_lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(faxwerk_gui_lib PUBLIC faxwerk_core Qt6::Widgets)
