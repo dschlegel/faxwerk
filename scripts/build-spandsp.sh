@@ -34,13 +34,15 @@ case "$(uname -s)" in
     Darwin)
         # Homebrew installs GNU libtoolize as glibtoolize. spandsp needs the
         # headers of libtiff and libjpeg, which the compiler doesn't look for
-        # in Homebrew's prefix (/opt/homebrew on Apple Silicon).
+        # in Homebrew's prefix (/opt/homebrew on Apple Silicon). CPATH and
+        # LIBRARY_PATH also reach the code generators that "make" compiles
+        # without CPPFLAGS.
         if command -v brew >/dev/null; then
             export PATH="$(brew --prefix libtool)/libexec/gnubin:$PATH"
             for formula in libtiff jpeg-turbo; do
                 FORMULA_PREFIX="$(brew --prefix "$formula")"
-                export CPPFLAGS="-I$FORMULA_PREFIX/include ${CPPFLAGS:-}"
-                export LDFLAGS="-L$FORMULA_PREFIX/lib ${LDFLAGS:-}"
+                export CPATH="$FORMULA_PREFIX/include${CPATH:+:$CPATH}"
+                export LIBRARY_PATH="$FORMULA_PREFIX/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
             done
         fi
         JOBS="$(sysctl -n hw.ncpu)"
