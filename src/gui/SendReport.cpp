@@ -14,6 +14,8 @@ namespace faxwerk::gui {
 
 bool writeSendReport(const JournalEntry &entry, const QString &path, QString *error)
 {
+    // A printed report: always the light colors, also in dark mode.
+    const ThemeColors &light = lightColors();
     QPdfWriter writer(path);
     writer.setPageSize(QPageSize(QPageSize::A4));
     writer.setResolution(300);
@@ -39,22 +41,22 @@ bool writeSendReport(const JournalEntry &entry, const QString &path, QString *er
     };
 
     int y = 0;
-    painter.setPen(color::primaryDeep);
+    painter.setPen(light.deep);
     painter.setFont(font(10, false));
     painter.drawText(QRect(0, y, width, 120), Qt::AlignLeft | Qt::AlignTop, QStringLiteral(FAXWERK_PRODUCT_NAME));
     y += 140;
 
-    painter.setPen(color::text);
+    painter.setPen(light.text);
     painter.setFont(font(22, true));
     painter.drawText(QRect(0, y, width, 160), Qt::AlignLeft | Qt::AlignTop, QStringLiteral("Sendebericht"));
     y += 200;
 
     const OutcomeText outcome = describeOutcome(entry.status, entry.sipStatus, entry.pagesTransferred, entry.pages);
     painter.setFont(font(14, true));
-    painter.setPen(outcome.severity == Severity::Ok ? color::success : color::error);
+    painter.setPen(outcome.severity == Severity::Ok ? light.success : light.error);
     painter.drawText(QRect(0, y, width, 120), Qt::AlignLeft | Qt::AlignTop, outcome.title);
     y += 120;
-    painter.setPen(color::text);
+    painter.setPen(light.text);
     painter.setFont(font(11, false));
     QRect detailRect(0, y, width, 400);
     QRect used = painter.boundingRect(detailRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, outcome.detail);
@@ -81,15 +83,15 @@ bool writeSendReport(const JournalEntry &entry, const QString &path, QString *er
     };
 
     const int labelWidth = width / 3;
-    painter.setPen(QPen(color::border, 3));
+    painter.setPen(QPen(light.border, 3));
     painter.drawLine(0, y, width, y);
     y += 50;
     for (const auto &row : rows) {
         painter.setFont(font(10, false));
-        painter.setPen(color::textMuted);
+        painter.setPen(light.muted);
         painter.drawText(QRect(0, y, labelWidth, 200), Qt::AlignLeft | Qt::AlignTop, row.first);
         painter.setFont(font(11, false));
-        painter.setPen(color::text);
+        painter.setPen(light.text);
         const QRect valueRect(labelWidth, y, width - labelWidth, 600);
         const QRect valueUsed =
             painter.boundingRect(valueRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, row.second);

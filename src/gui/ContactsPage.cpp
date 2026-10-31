@@ -1,5 +1,6 @@
 #include "ContactsPage.h"
 
+#include "Theme.h"
 #include "Widgets.h"
 
 #include <QHBoxLayout>
@@ -78,11 +79,17 @@ ContactsPage::ContactsPage(QWidget *parent)
     emptyText->setProperty("role", QStringLiteral("subtitle"));
     emptyText->setAlignment(Qt::AlignHCenter);
     emptyText->setWordWrap(true);
-    emptyText->setMaximumWidth(560);
+    // Centered by stretches, not by an alignment flag: with an alignment the
+    // layout ignores the height a wrapped label needs and cuts off the text.
+    emptyText->setFixedWidth(520);
+    auto *emptyTextRow = new QHBoxLayout;
+    emptyTextRow->addStretch(1);
+    emptyTextRow->addWidget(emptyText);
+    emptyTextRow->addStretch(1);
     auto *emptyButton = new QPushButton(QStringLiteral("Zugang einrichten"));
     emptyButton->setProperty("role", QStringLiteral("primary"));
     emptyLayout->addWidget(emptyTitle);
-    emptyLayout->addWidget(emptyText, 0, Qt::AlignHCenter);
+    emptyLayout->addLayout(emptyTextRow);
     emptyLayout->addSpacing(12);
     emptyLayout->addWidget(emptyButton, 0, Qt::AlignHCenter);
     emptyLayout->addStretch(2);
@@ -233,7 +240,7 @@ void ContactsPage::startNew(const QString &name, const QString &number)
 void ContactsPage::setStatus(const QString &text, bool error)
 {
     m_status->setText(text);
-    m_status->setStyleSheet(error ? QStringLiteral("color: #8e2626;") : QString());
+    setThemedStyleSheet(m_status, error ? QStringLiteral("color: @failText;") : QString());
 }
 
 void ContactsPage::showSaveResult(bool ok, const QString &message)

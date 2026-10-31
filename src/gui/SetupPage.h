@@ -8,6 +8,7 @@
 
 #include <memory>
 
+class QBoxLayout;
 class QCheckBox;
 class QComboBox;
 class QLabel;
@@ -23,9 +24,13 @@ namespace faxwerk::gui {
 
 class FritzPhonebook;
 
-// Screen D: three-step assistant. Step 1 edits the locations (router
-// credentials with a registration check, sender details), step 2 the
-// optional FRITZ!Box user for the phonebook, step 3 the transfer options.
+// Screen D, in two modes:
+//  - first run: a three-step assistant (Weiter/Zurück). Step 1 edits the
+//    locations (router credentials with a registration check, sender
+//    details), step 2 the optional FRITZ!Box user for the phonebook, step 3
+//    the transfer options.
+//  - later: the settings, the same three parts as tabs, saved from any of
+//    them.
 class SetupPage : public QWidget
 {
     Q_OBJECT
@@ -45,6 +50,11 @@ signals:
 
 private:
     void showStep(int step);
+    // Leaves the current step, keeping its input. False if the locations are
+    // incomplete (the form then shows what is missing).
+    bool leaveStep(int target);
+    void prepareBookStep();
+    void save();
     void storeForm();
     void loadForm(int index);
     void refreshLocationBox();
@@ -66,7 +76,13 @@ private:
     QString m_checkingId;
     QTimer m_checkTimeout;
 
+    bool m_settingsMode = false;
     QPushButton *m_stepPills[3] = {};
+    QBoxLayout *m_pillLayout = nullptr;
+    QPushButton *m_bookBack = nullptr;
+    QPushButton *m_bookNext = nullptr;
+    QPushButton *m_transferBack = nullptr;
+    QPushButton *m_save = nullptr;
     QLabel *m_helpTitle = nullptr;
     QLabel *m_helpText = nullptr;
     QStackedWidget *m_steps = nullptr;
@@ -99,6 +115,7 @@ private:
     QComboBox *m_rate = nullptr;
     QCheckBox *m_ecm = nullptr;
     QCheckBox *m_dither = nullptr;
+    QComboBox *m_appearance = nullptr;
 };
 
 } // namespace faxwerk::gui

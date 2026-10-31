@@ -25,6 +25,9 @@ QString normalizeNumber(const QString &number);
 
 // "14:21", "gestern" or "28.10." relative to now.
 QString shortTime(const QDateTime &time, const QDateTime &now = QDateTime::currentDateTime());
+// Heading for the entries of one day: "Heute", "Gestern", "Montag, 27. Oktober"
+// (with the year for other years).
+QString dayHeading(const QDate &date, const QDate &today = QDate::currentDate());
 
 // "1:52 min" or "42 s".
 QString formatDuration(qint64 ms);

@@ -12,12 +12,15 @@
 #include "FaxJob.h"
 #include "ProductInfo.h"
 
+#include <QAction>
 #include <QButtonGroup>
 #include <QCloseEvent>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
 #include <QProgressDialog>
@@ -36,6 +39,12 @@ namespace {
 constexpr qint64 kStatusRefreshMs = 30000;
 // Read the phonebook of the reachable router again after this time.
 constexpr qint64 kPhonebookMaxAgeSecs = 30 * 60;
+
+// Ctrl+1 … Ctrl+4 (Cmd on macOS) for the pages of the top bar.
+QKeySequence navShortcut(int index)
+{
+    return QKeySequence(Qt::CTRL | Qt::Key(Qt::Key_1 + index));
+}
 
 QIcon dotIcon(const QColor &color)
 {
@@ -271,11 +280,12 @@ MainWindow::MainWindow(QWidget *parent)
             refreshStatus();
     });
 
+    setUpMenus();
     m_compose->setRecentRecipients(m_journal.recentRecipients(3));
     applySettings(m_settings);
     updateContacts();
     if (m_settings.isConfigured()) {
-        showPage(ComposeIndex);
+        showPage(ComposeIndex); // also puts the cursor into the number field
         refreshStatus();
     } else {
         setConnection(Connection::NotConfigured);
@@ -308,9 +318,31 @@ bool MainWindow::busy() const
 void MainWindow::showPage(Page page)
 {
     m_stack->setCurrentIndex(page);
-    const bool firstRun = !m_settings.isConfigured();
+    // The focus would otherwise jump to the first button of the new page and
+    // show its focus ring. Keyboard users who switched pages from the top bar
+    // keep the focus there.
+    bool onNav = false;
     for (QPushButton *button : m_navButtons)
+        onNav = onNav || button->hasFocus();
+    if (!onNav) {
+        if (page == ComposeIndex)
+            m_compose->focusRecipient();
+        else
+            m_stack->currentWidget()->setFocus();
+    }
+    const bool firstRun = !m_settings.isConfigured();
+    for (QPushButton *button : m_navButtons) {
         button->setEnabled(!busy() && !firstRun);
+        // Say why the navigation is not available.
+    }
+    for (int i = 0; i < 4; ++i) {
+        // Say why the navigation is not available, otherwise its shortcut.
+        m_navButtons[i]->setToolTip(
+            firstRun ? QStringLiteral("Erst nach der Einrichtung verfügbar")
+            : busy() ? QStringLiteral("Nicht verfügbar, während ein Fax gesendet wird")
+                     : QStringLiteral("%1 (%2)").arg(m_navButtons[i]->text(),
+                                                     navShortcut(i).toString(QKeySequence::NativeText)));
+    }
 
     QAbstractButton *active = nullptr;
     switch (page) {
@@ -335,34 +367,42 @@ void MainWindow::setConnection(Connection state, const QString &locationId)
     m_connection = state;
     const Location *location = m_settings.find(locationId);
     const QString name = location ? location->displayName() : QString();
-    QColor dot;
+    QColor ThemeColors::*dot = &ThemeColors::searching;
     QString text;
+    QString shortText;
     switch (state) {
     case Connection::NotConfigured:
-        dot = color::warning;
+        dot = &ThemeColors::warning;
         text = QStringLiteral("Nicht eingerichtet");
+        shortText = QStringLiteral("Einrichten");
         break;
     case Connection::Searching:
-        dot = QColor(0xb9, 0xa0, 0xc9);
+        dot = &ThemeColors::searching;
         text = QStringLiteral("Standort wird gesucht …");
+        shortText = QStringLiteral("Suche …");
         break;
     case Connection::Connected:
         m_connectedId = locationId;
-        dot = color::success;
+        dot = &ThemeColors::success;
         text = QStringLiteral("Verbunden mit %1").arg(name);
+        shortText = name;
         break;
     case Connection::Unreachable:
         m_connectedId.clear();
-        dot = color::error;
+        dot = &ThemeColors::error;
         text = QStringLiteral("Keine FRITZ!Box erreichbar");
+        shortText = QStringLiteral("Offline");
         break;
     case Connection::Failed:
-        dot = color::error;
+        dot = &ThemeColors::error;
         text = QStringLiteral("Keine Verbindung zu %1").arg(name);
+        shortText = QStringLiteral("Keine Verbindung");
         break;
     }
-    m_statusChip->setIcon(dotIcon(dot));
+    m_statusDot = dot;
+    m_statusChip->setIcon(dotIcon(colors().*dot));
     m_statusText = text;
+    m_statusShort = shortText;
     updateStatusChip();
 
     const Location *found = m_settings.find(m_connectedId);
@@ -451,6 +491,7 @@ void MainWindow::refreshStatus()
 void MainWindow::applySettings(const AppSettings &settings)
 {
     m_settings = settings;
+    setAppearance(appearanceFromName(settings.appearance));
     m_compose->setLocations(settings.locations, settings.autoSelect ? QString() : settings.preferredId);
     m_compose->setDitherDefault(settings.dither);
 }
@@ -591,6 +632,73 @@ void MainWindow::onJobFinished()
         close();
 }
 
+void MainWindow::setUpMenus()
+{
+    const auto addAction = [this](QMenu *menu, const QString &text, const QKeySequence &shortcut,
+                                  auto slot, QAction::MenuRole role = QAction::NoRole) {
+        auto *action = new QAction(text, this);
+        action->setShortcut(shortcut);
+        action->setMenuRole(role);
+        connect(action, &QAction::triggered, this, slot);
+        if (menu)
+            menu->addAction(action);
+        else
+            this->addAction(action); // shortcut only, no menu bar
+        return action;
+    };
+    const auto navigate = [this](int index) {
+        return [this, index] {
+            if (m_navButtons[index]->isEnabled())
+                m_navButtons[index]->click();
+        };
+    };
+
+#ifdef Q_OS_MACOS
+    // macOS apps have a menu bar; Qt moves "Über", "Einstellungen …" and
+    // "Beenden" into the application menu by their roles.
+    QMenu *file = menuBar()->addMenu(QStringLiteral("Ablage"));
+    QMenu *view = menuBar()->addMenu(QStringLiteral("Darstellung"));
+#else
+    // Windows and Linux keep the window as it is (the top bar is the
+    // navigation) and get the same shortcuts.
+    QMenu *file = nullptr;
+    QMenu *view = nullptr;
+#endif
+    addAction(file, QStringLiteral("Neues Fax"), QKeySequence::New, [this, navigate] {
+        navigate(0)();
+        if (m_stack->currentIndex() == ComposeIndex)
+            m_compose->focusRecipient();
+    });
+    addAction(file, QStringLiteral("PDF öffnen …"), QKeySequence::Open, [this, navigate] {
+        navigate(0)();
+        if (m_stack->currentIndex() == ComposeIndex)
+            m_compose->chooseDocuments();
+    });
+    addAction(file, QStringLiteral("Einstellungen …"), QKeySequence(QKeySequence::Preferences).isEmpty()
+                                                          ? QKeySequence(Qt::CTRL | Qt::Key_Comma)
+                                                          : QKeySequence(QKeySequence::Preferences),
+              navigate(3), QAction::PreferencesRole);
+    addAction(file, QStringLiteral("%1 beenden").arg(QStringLiteral(FAXWERK_PRODUCT_NAME)), QKeySequence::Quit,
+              [this] { close(); }, QAction::QuitRole);
+
+    const QString pages[] = {QStringLiteral("Neues Fax"), QStringLiteral("Gesendet"), QStringLiteral("Kontakte"),
+                             QStringLiteral("Einstellungen")};
+    for (int i = 0; i < 4; ++i)
+        addAction(view, pages[i], navShortcut(i), navigate(i));
+    addAction(view, QStringLiteral("Standort erneut suchen"), QKeySequence::Refresh, [this] { refreshStatus(); });
+
+    // Moved into the application menu on macOS.
+    addAction(file, QStringLiteral("Über %1").arg(QStringLiteral(FAXWERK_PRODUCT_NAME)), QKeySequence(),
+              [this] { showAbout(); }, QAction::AboutRole);
+}
+
+void MainWindow::showAbout()
+{
+    QMessageBox::about(this, QStringLiteral("Über %1").arg(QStringLiteral(FAXWERK_PRODUCT_NAME)),
+                       QStringLiteral("<p><b>%1 %2</b></p><p>PDF-Dokumente als Fax über die FRITZ!Box senden.</p>")
+                           .arg(QStringLiteral(FAXWERK_PRODUCT_NAME), QStringLiteral(FAXWERK_VERSION)));
+}
+
 void MainWindow::setUpUpdates(QHBoxLayout *bar)
 {
     m_updater = UpdateService::create(this);
@@ -704,11 +812,23 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::updateStatusChip()
 {
+    // Narrow windows show a short form, never only the colored dot.
     const bool compact = width() < 900;
-    m_statusChip->setText(compact ? QString() : m_statusText);
+    QString shortText = m_statusShort;
+    if (shortText.size() > 18)
+        shortText = shortText.left(17) + QStringLiteral("…");
+    m_statusChip->setText(compact ? shortText : m_statusText);
     m_statusChip->setToolTip(compact ? QStringLiteral("%1. Klicken, um erneut zu suchen.").arg(m_statusText)
                                      : QStringLiteral("Erreichbaren Standort erneut suchen"));
     m_statusChip->setAccessibleName(m_statusText);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    // Light or dark theme switched: repaint the status dot in its new color.
+    if (event->type() == QEvent::PaletteChange && m_statusChip)
+        m_statusChip->setIcon(dotIcon(colors().*m_statusDot));
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

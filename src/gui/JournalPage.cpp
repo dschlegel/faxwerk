@@ -2,6 +2,7 @@
 
 #include "Messages.h"
 #include "SendReport.h"
+#include "Theme.h"
 #include "Widgets.h"
 
 #include <QFileDialog>
@@ -64,13 +65,23 @@ QWidget *makeRow(const JournalEntry &entry)
     pill->setProperty("pill", pillFor(outcome.severity));
     layout->addWidget(pill, 0, Qt::AlignVCenter);
 
-    auto *time = new QLabel(shortTime(entry.time));
+    // The day is in the heading above the row.
+    auto *time = new QLabel(entry.time.toString(QStringLiteral("HH:mm")));
     time->setProperty("role", QStringLiteral("muted"));
     time->setStyleSheet(QStringLiteral("background: transparent;"));
     time->setMinimumWidth(56);
     time->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     layout->addWidget(time);
     return row;
+}
+
+QWidget *makeDayHeading(const QDate &date)
+{
+    auto *label = new QLabel(dayHeading(date));
+    label->setAttribute(Qt::WA_TransparentForMouseEvents);
+    label->setContentsMargins(14, 12, 14, 2);
+    setThemedStyleSheet(label, QStringLiteral("color: @muted; font-size: 13px; font-weight: 600; background: transparent;"));
+    return label;
 }
 
 } // namespace
@@ -101,6 +112,7 @@ JournalPage::JournalPage(Journal *journal, QWidget *parent)
     auto *emptyText = new QLabel(QStringLiteral("Hier erscheint jedes Fax mit seinem Ergebnis und Sendebericht."));
     emptyText->setProperty("role", QStringLiteral("subtitle"));
     emptyText->setAlignment(Qt::AlignHCenter);
+    emptyText->setWordWrap(true);
     auto *emptyButton = new QPushButton(QStringLiteral("Neues Fax"));
     emptyButton->setProperty("role", QStringLiteral("primary"));
     emptyLayout->addWidget(emptyTitle);
@@ -142,12 +154,17 @@ JournalPage::JournalPage(Journal *journal, QWidget *parent)
     auto *detailLayout = new QVBoxLayout(detail);
     detailLayout->setContentsMargins(26, 26, 26, 26);
     detailLayout->setSpacing(14);
+    // The recipient as the heading, the outcome below it.
     m_detailTitle = new QLabel;
     m_detailTitle->setProperty("role", QStringLiteral("sectionTitle"));
+    m_detailTitle->setWordWrap(true);
+    m_detailTitle->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_detailPill = new QLabel;
     m_detailText = new QLabel;
     m_detailText->setProperty("role", QStringLiteral("subtitle"));
     m_detailText->setWordWrap(true);
     detailLayout->addWidget(m_detailTitle);
+    detailLayout->addWidget(m_detailPill, 0, Qt::AlignLeft);
     detailLayout->addWidget(m_detailText);
     auto *divider = new QFrame;
     divider->setProperty("role", QStringLiteral("divider"));
@@ -212,6 +229,8 @@ void JournalPage::rebuild()
     const QSignalBlocker blocker(m_list);
     m_list->clear();
     QListWidgetItem *selected = nullptr;
+    QListWidgetItem *first = nullptr;
+    QDate day;
     for (const JournalEntry &entry : m_journal->entries()) {
         if (!filter.isEmpty()) {
             const QString haystack = QStringLiteral("%1 %2 %3 %4").arg(
@@ -220,15 +239,25 @@ void JournalPage::rebuild()
             if (!haystack.contains(filter, Qt::CaseInsensitive))
                 continue;
         }
+        // A heading whenever the day changes; headings cannot be selected.
+        if (entry.time.date() != day) {
+            day = entry.time.date();
+            auto *heading = new QListWidgetItem(m_list);
+            heading->setFlags(Qt::NoItemFlags);
+            heading->setSizeHint(QSize(0, 36));
+            m_list->setItemWidget(heading, makeDayHeading(day));
+        }
         auto *item = new QListWidgetItem(m_list);
         item->setData(Qt::UserRole, entry.id);
         item->setSizeHint(QSize(0, 64));
         m_list->setItemWidget(item, makeRow(entry));
+        if (!first)
+            first = item;
         if (entry.id == keep)
             selected = item;
     }
-    if (!selected && m_list->count() > 0)
-        selected = m_list->item(0);
+    if (!selected)
+        selected = first;
     if (selected) {
         m_list->setCurrentItem(selected);
         showDetails(selected->data(Qt::UserRole).toString());
@@ -246,29 +275,35 @@ void JournalPage::showDetails(const QString &id)
     m_selectedId = id;
     const OutcomeText outcome =
         describeOutcome(entry->status, entry->sipStatus, entry->pagesTransferred, entry->pages);
-    m_detailTitle->setText(outcome.title);
+    m_detailTitle->setText(entry->displayName());
+    m_detailPill->setText(outcome.title);
+    setStyleProperty(m_detailPill, "pill", pillFor(outcome.severity));
+    const QString when = QStringLiteral("%1 um %2 Uhr")
+                             .arg(entry->time.toString(QStringLiteral("dd.MM.yyyy")),
+                                  entry->time.toString(QStringLiteral("HH:mm")));
     if (outcome.severity == Severity::Ok)
-        m_detailText->setText(QStringLiteral("An %1 am %2.")
-                                  .arg(entry->displayName(), entry->time.toString(QStringLiteral("dd.MM.yyyy, HH:mm"))));
+        m_detailText->setText(QStringLiteral("Zugestellt am %1.").arg(when));
     else
-        m_detailText->setText(outcome.detail);
+        m_detailText->setText(QStringLiteral("%1\nGesendet am %2.").arg(outcome.detail, when));
     m_detailText->setToolTip(entry->message);
 
     while (QLayoutItem *item = m_facts->takeAt(0)) {
         delete item->widget();
         delete item;
     }
-    QList<QPair<QString, QString>> facts = {
-        {QStringLiteral("Nummer"), entry->destination},
-        {QStringLiteral("Seiten"), QStringLiteral("%1 von %2").arg(entry->pagesTransferred).arg(entry->pages)},
-        {QStringLiteral("Dokument"), fileNames(entry->documents).join(QStringLiteral(", "))},
-        {QStringLiteral("Dauer"), formatDuration(entry->durationMs)},
-        {QStringLiteral("Geschwindigkeit"),
-         entry->bitRate > 0 ? QStringLiteral("%1 bit/s").arg(entry->bitRate) : QStringLiteral("–")},
-        {QStringLiteral("Gegenstelle"), entry->remoteIdent.isEmpty() ? QStringLiteral("–") : entry->remoteIdent},
-    };
+    // Only what is known; empty values are left out instead of shown as "–".
+    QList<QPair<QString, QString>> facts = {{QStringLiteral("Nummer"), entry->destination}};
     if (!entry->location.isEmpty())
-        facts.insert(1, {QStringLiteral("Standort"), entry->location});
+        facts.append({QStringLiteral("Standort"), entry->location});
+    facts.append({QStringLiteral("Seiten"), QStringLiteral("%1 von %2").arg(entry->pagesTransferred).arg(entry->pages)});
+    if (!entry->documents.isEmpty())
+        facts.append({QStringLiteral("Dokument"), fileNames(entry->documents).join(QStringLiteral(", "))});
+    if (entry->durationMs > 0)
+        facts.append({QStringLiteral("Dauer"), formatDuration(entry->durationMs)});
+    if (entry->bitRate > 0)
+        facts.append({QStringLiteral("Geschwindigkeit"), QStringLiteral("%1 bit/s").arg(entry->bitRate)});
+    if (!entry->remoteIdent.isEmpty())
+        facts.append({QStringLiteral("Gegenstelle"), entry->remoteIdent});
     for (int i = 0; i < facts.size(); ++i) {
         auto *cell = new QWidget;
         auto *cellLayout = new QVBoxLayout(cell);

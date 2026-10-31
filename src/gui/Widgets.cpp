@@ -23,7 +23,8 @@ void paintLogo(QPainter &painter, const QRectF &rect)
     painter.scale(rect.width() / 32.0, rect.height() / 32.0);
 
     painter.setPen(Qt::NoPen);
-    painter.setBrush(color::primary);
+    // The brand mark keeps its colors in every theme.
+    painter.setBrush(lightColors().primary);
     painter.drawRoundedRect(QRectF(0, 0, 32, 32), 9, 9);
 
     QPen pen(Qt::white, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -89,14 +90,15 @@ void PageThumbnail::paintEvent(QPaintEvent *)
     const QRectF sheet(8, 4, kWidth, kHeight);
     // Soft shadow below the sheet.
     for (int i = 6; i > 0; --i) {
-        QColor shadow = color::primaryDeep;
+        QColor shadow = isDarkTheme() ? QColor(Qt::black) : colors().deep;
         shadow.setAlphaF(0.025 * (7 - i));
         painter.setPen(Qt::NoPen);
         painter.setBrush(shadow);
         painter.drawRoundedRect(sheet.adjusted(-i * 0.5, i, i * 0.5, i), 6, 6);
     }
+    // The sheet stays white in dark mode: it shows the paper as received.
     painter.setBrush(Qt::white);
-    painter.setPen(QPen(QColor(0xd9, 0xcf, 0xe0), 1));
+    painter.setPen(QPen(colors().scroll, 1));
     painter.drawRoundedRect(sheet, 6, 6);
 
     if (!m_image.isNull()) {
@@ -110,7 +112,7 @@ void PageThumbnail::paintEvent(QPaintEvent *)
         painter.setClipping(false);
     }
 
-    painter.setPen(color::textMuted);
+    painter.setPen(colors().muted);
     QFont font = painter.font();
     font.setPixelSize(13);
     painter.setFont(font);
@@ -166,7 +168,7 @@ void WaveformWidget::paintEvent(QPaintEvent *)
             shape = shape * (0.75 + 0.25 * std::sin(m_phase + i * 0.4));
         const double h = std::max(8.0, (0.14 + 0.86 * shape) * maxHeight);
         const QRectF bar(i * (barWidth + gap), (height() - h) / 2, barWidth, h);
-        painter.setBrush(i < doneBars ? color::lilacSoft : ahead);
+        painter.setBrush(i < doneBars ? lightColors().lilacSoft : ahead);
         painter.drawRoundedRect(bar, std::min(3.0, barWidth / 2), std::min(3.0, barWidth / 2));
     }
 }
@@ -206,7 +208,7 @@ void PageProgressWidget::paintEvent(QPaintEvent *)
             painter.setPen(Qt::NoPen);
             painter.setBrush(Qt::white);
             painter.drawRoundedRect(box, 5, 5);
-            QPen check(color::success, 2.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            QPen check(lightColors().success, 2.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
             painter.setPen(check);
             const QPointF c = box.center();
             const QPointF mark[] = {{c.x() - 7, c.y()}, {c.x() - 2, c.y() + 5}, {c.x() + 7, c.y() - 5}};
@@ -284,28 +286,28 @@ void StepList::setState(int index, State state)
     switch (state) {
     case State::Waiting:
         row.dot->setText(QString::number(index + 1));
-        dotStyle = QStringLiteral("border: 1.5px solid #e2d2ec; color: #6b6075;");
-        titleStyle = QStringLiteral("color: #6b6075;");
+        dotStyle = QStringLiteral("border: 1.5px solid @border; color: @muted;");
+        titleStyle = QStringLiteral("color: @muted;");
         break;
     case State::Active:
         row.dot->setText(QString::number(index + 1));
-        dotStyle = QStringLiteral("background: #7a5a8b; color: #ffffff; border: 4px solid #ebe0f0;");
-        titleStyle = QStringLiteral("font-weight: 600; color: #1f1d24;");
+        dotStyle = QStringLiteral("background: @primary; color: @onPrimary; border: 4px solid @lilac;");
+        titleStyle = QStringLiteral("font-weight: 600; color: @text;");
         break;
     case State::Done:
         row.dot->setText(QStringLiteral("✓"));
-        dotStyle = QStringLiteral("background: #ebe0f0; color: #4f3661;");
-        titleStyle = QStringLiteral("font-weight: 500; color: #1f1d24;");
+        dotStyle = QStringLiteral("background: @lilac; color: @accentText;");
+        titleStyle = QStringLiteral("font-weight: 500; color: @text;");
         break;
     case State::Failed:
         row.dot->setText(QStringLiteral("✕"));
-        dotStyle = QStringLiteral("background: #f8e1e1; color: #8e2626;");
-        titleStyle = QStringLiteral("font-weight: 600; color: #8e2626;");
+        dotStyle = QStringLiteral("background: @failBg; color: @failText;");
+        titleStyle = QStringLiteral("font-weight: 600; color: @failText;");
         break;
     }
-    row.dot->setStyleSheet(QStringLiteral("QLabel { border-radius: 14px; font-size: 13px; font-weight: 600; %1 }")
-                               .arg(dotStyle));
-    row.title->setStyleSheet(QStringLiteral("QLabel { font-size: 15px; %1 }").arg(titleStyle));
+    setThemedStyleSheet(row.dot, QStringLiteral("QLabel { border-radius: 14px; font-size: 13px; font-weight: 600; %1 }")
+                                     .arg(dotStyle));
+    setThemedStyleSheet(row.title, QStringLiteral("QLabel { font-size: 15px; %1 }").arg(titleStyle));
 }
 
 void StepList::setDetail(int index, const QString &detail)

@@ -78,6 +78,7 @@ AppSettings AppSettings::load(QSettings &ini)
         s.timeoutSeconds = timeout;
     s.autoSelect = ini.value(QStringLiteral("gui/auto_select"), true).toBool();
     s.preferredId = ini.value(QStringLiteral("gui/location")).toString();
+    s.appearance = ini.value(QStringLiteral("gui/appearance"), s.appearance).toString();
 
     const int count = ini.beginReadArray(QStringLiteral("locations"));
     for (int i = 0; i < count; ++i) {
@@ -164,6 +165,7 @@ void AppSettings::save(QSettings &ini) const
     ini.setValue(QStringLiteral("fax/dither"), dither);
     ini.setValue(QStringLiteral("gui/auto_select"), autoSelect);
     ini.setValue(QStringLiteral("gui/location"), preferredId);
+    ini.setValue(QStringLiteral("gui/appearance"), appearance);
     ini.sync();
 }
 

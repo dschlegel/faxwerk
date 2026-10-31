@@ -1,20 +1,19 @@
-/* Faxwerk desktop theme, colors from the Sonara website:
-   primary #7a5a8b, hover #6a4a7b, deep #4f3661, cream #faf5f0,
-   lilac #ebe0f0, border #e2d2ec, text #1f1d24, muted #6b6075 */
+/* Faxwerk desktop theme. @name stands for a color role; Theme.cpp replaces
+   it with the light or the dark value (see ThemeColors in Theme.h). */
 
 QMainWindow, QWidget#page, QScrollArea, QScrollArea > QWidget > QWidget#scrollContent {
-    background: #faf5f0;
+    background: @window;
 }
 
 QWidget {
-    color: #1f1d24;
+    color: @text;
 }
 
 /* Top bar */
 QFrame#topBar {
-    background: #faf5f0;
+    background: @window;
     border: none;
-    border-bottom: 1px solid #e2d2ec;
+    border-bottom: 1px solid @border;
 }
 QLabel#productName {
     font-size: 18px;
@@ -22,18 +21,21 @@ QLabel#productName {
 }
 QPushButton[role="nav"] {
     background: transparent;
-    border: none;
+    border: 2px solid transparent;
     border-radius: 18px;
-    padding: 8px 16px;
-    color: #4f3661;
+    padding: 6px 14px;
+    color: @accentText;
     font-weight: 500;
     min-height: 20px;
 }
 QPushButton[role="nav"]:hover {
-    background: #f5ecf2;
+    background: @lilacSoft;
 }
 QPushButton[role="nav"]:checked {
-    background: #ebe0f0;
+    background: @lilac;
+}
+QPushButton[role="nav"]:disabled {
+    color: @navDisabled;
 }
 
 /* Status chip: shows the reachable location, click to look again */
@@ -45,11 +47,11 @@ QPushButton#statusChip {
     max-height: 32px;
     font-size: 14px;
     font-weight: 400;
-    background: #ebe0f0;
-    color: #4f3661;
+    background: @lilac;
+    color: @accentText;
 }
 QPushButton#statusChip:hover {
-    background: #e2d2ec;
+    background: @lilacHover;
 }
 
 /* Update chip: a new version of the AppImage is available */
@@ -61,15 +63,22 @@ QPushButton#updateChip {
     max-height: 32px;
     font-size: 14px;
     font-weight: 500;
-    background: #7a5a8b;
-    color: #ffffff;
+    background: @primary;
+    color: @onPrimary;
 }
 QPushButton#updateChip:hover {
-    background: #6a4a7b;
+    background: @primaryHover;
 }
 QPushButton#updateChip:disabled {
-    background: #ebe0f0;
-    color: #6b6075;
+    background: @lilac;
+    color: @muted;
+}
+
+/* Bar below the "Neues Fax" page in narrow windows, holds the send button */
+QFrame#sendFooter {
+    background: @surface;
+    border: none;
+    border-top: 1px solid @border;
 }
 
 /* Text */
@@ -78,7 +87,7 @@ QLabel[role="title"] {
     font-weight: 600;
 }
 QLabel[role="subtitle"], QLabel[role="muted"] {
-    color: #6b6075;
+    color: @muted;
 }
 QLabel[role="subtitle"] {
     font-size: 16px;
@@ -87,7 +96,7 @@ QLabel[role="muted"] {
     font-size: 13px;
 }
 QLabel[role="fieldLabel"] {
-    color: #4f3661;
+    color: @accentText;
     font-size: 14px;
     font-weight: 500;
 }
@@ -98,24 +107,24 @@ QLabel[role="sectionTitle"] {
 
 /* Cards */
 QFrame[role="card"] {
-    background: #ffffff;
-    border: 1px solid #e2d2ec;
+    background: @surface;
+    border: 1px solid @border;
     border-radius: 26px;
 }
 QFrame[role="darkCard"] {
-    background: #4f3661;
+    background: @deep;
     border: none;
     border-radius: 30px;
 }
 QFrame[role="darkCard"] QLabel {
-    color: #ffffff;
+    color: @onDark;
     background: transparent;
 }
 QFrame[role="darkCard"] QLabel[role="onDarkMuted"] {
-    color: #e2d2ec;
+    color: @onDarkMuted;
 }
 QFrame[role="divider"] {
-    background: #efe6f3;
+    background: @divider;
     border: none;
     max-height: 1px;
     min-height: 1px;
@@ -123,16 +132,16 @@ QFrame[role="divider"] {
 
 /* Inputs */
 QLineEdit, QComboBox {
-    background: #ffffff;
-    border: 1px solid #e2d2ec;
+    background: @surface;
+    border: 1px solid @border;
     border-radius: 14px;
     padding: 0 14px;
     min-height: 46px;
     font-size: 16px;
-    selection-background-color: #7a5a8b;
+    selection-background-color: @primary;
 }
 QLineEdit:focus, QComboBox:focus {
-    border: 2px solid #7a5a8b;
+    border: 2px solid @primary;
     padding: 0 13px;
 }
 QLineEdit#destination {
@@ -146,13 +155,13 @@ QComboBox::drop-down {
     width: 28px;
 }
 QComboBox QAbstractItemView {
-    border: 1px solid #e2d2ec;
-    selection-background-color: #ebe0f0;
-    selection-color: #1f1d24;
+    border: 1px solid @border;
+    selection-background-color: @lilac;
+    selection-color: @text;
 }
 QListView#contactPopup {
-    background: #ffffff;
-    border: 1px solid #e2d2ec;
+    background: @surface;
+    border: 1px solid @border;
     border-radius: 12px;
     padding: 4px 0;
     outline: none;
@@ -169,40 +178,43 @@ QPushButton {
     min-height: 48px;
     font-size: 15px;
     font-weight: 600;
-    background: #ffffff;
-    color: #4f3661;
-    border: 1.5px solid #e2d2ec;
+    background: @surface;
+    color: @accentText;
+    border: 1.5px solid @border;
 }
 QPushButton:hover {
-    background: #f5ecf2;
+    background: @lilacSoft;
 }
 QPushButton:pressed {
-    background: #ebe0f0;
+    background: @lilac;
 }
+/* Buttons only take the focus from the keyboard (see Theme.cpp), so this is
+   the keyboard focus ring. */
 QPushButton:focus {
-    border-color: #7a5a8b;
+    border-color: @focusBorder;
 }
 QPushButton:disabled {
-    color: #a99fb1;
-    background: #f7f2f5;
+    color: @disabledText;
+    background: @disabledBg;
 }
 QPushButton[role="primary"] {
-    background: #7a5a8b;
-    color: #ffffff;
-    border: none;
+    background: @primary;
+    color: @onPrimary;
+    /* Transparent until focused, so the focus ring does not change the size */
+    border: 2px solid transparent;
 }
 QPushButton[role="primary"]:hover {
-    background: #6a4a7b;
+    background: @primaryHover;
 }
 QPushButton[role="primary"]:pressed {
-    background: #4f3661;
+    background: @primaryPressed;
 }
 QPushButton[role="primary"]:focus {
-    border: 2px solid #b9a0c9;
+    border-color: @focus;
 }
 QPushButton[role="primary"]:disabled {
-    background: #cbbcd3;
-    color: #ffffff;
+    background: @primaryDisabled;
+    color: @primaryDisabledText;
 }
 QPushButton[role="primary"][size="big"] {
     min-height: 56px;
@@ -214,13 +226,16 @@ QPushButton[role="link"] {
     border: none;
     padding: 0;
     min-height: 28px;
-    color: #6a4a7b;
+    color: @link;
     font-weight: 500;
     text-align: left;
 }
-QPushButton[role="link"]:hover {
-    color: #4f3661;
+QPushButton[role="link"]:hover, QPushButton[role="link"]:focus {
+    color: @accentText;
     text-decoration: underline;
+}
+QPushButton[role="link"]:focus {
+    border: none;
 }
 QPushButton#addPdf {
     min-width: 150px;
@@ -228,32 +243,35 @@ QPushButton#addPdf {
     min-height: 212px;
     max-height: 212px;
     padding: 0;
-    border: 1.5px dashed #b9a0c9;
+    border: 1.5px dashed @dashed;
     border-radius: 6px;
-    background: #faf5f0;
-    color: #6a4a7b;
+    background: @window;
+    color: @link;
     font-weight: 500;
     font-size: 14px;
 }
 QPushButton#addPdf:hover {
-    background: #f5ecf2;
+    background: @lilacSoft;
 }
 QPushButton[role="recent"] {
     text-align: left;
-    border: none;
+    border: 2px solid transparent;
     border-radius: 14px;
     padding: 8px 14px;
     background: transparent;
     font-weight: 500;
-    color: #1f1d24;
+    color: @text;
 }
 QPushButton[role="recent"]:hover {
-    background: #f5ecf2;
+    background: @lilacSoft;
+}
+QPushButton[role="recent"]:focus {
+    border-color: @focusBorder;
 }
 QToolButton#disclosure {
     border: none;
     background: transparent;
-    color: #4f3661;
+    color: @accentText;
     font-weight: 500;
     font-size: 14px;
     padding: 4px 0;
@@ -261,8 +279,8 @@ QToolButton#disclosure {
 
 /* Lists */
 QListWidget {
-    background: #ffffff;
-    border: 1px solid #e2d2ec;
+    background: @surface;
+    border: 1px solid @border;
     border-radius: 22px;
     padding: 6px;
     outline: none;
@@ -272,33 +290,33 @@ QListWidget::item {
     margin: 1px 0;
 }
 QListWidget::item:selected, QListWidget::item:selected:active {
-    background: #f5ecf2;
-    color: #1f1d24;
+    background: @lilacSoft;
+    color: @text;
 }
 QListWidget::item:hover {
-    background: #faf5f0;
+    background: @window;
 }
 
 /* Status pills */
 QLabel[pill="ok"] {
-    background: #e4f1ea;
-    color: #1f5c41;
+    background: @okBg;
+    color: @okText;
     border-radius: 11px;
     padding: 3px 11px;
     font-size: 13px;
     font-weight: 500;
 }
 QLabel[pill="warn"] {
-    background: #fbeee4;
-    color: #8a3f0c;
+    background: @warnBg;
+    color: @warnText;
     border-radius: 11px;
     padding: 3px 11px;
     font-size: 13px;
     font-weight: 500;
 }
 QLabel[pill="fail"] {
-    background: #f8e1e1;
-    color: #8e2626;
+    background: @failBg;
+    color: @failText;
     border-radius: 11px;
     padding: 3px 11px;
     font-size: 13px;
@@ -307,18 +325,18 @@ QLabel[pill="fail"] {
 
 /* Banners */
 QLabel[banner="ok"] {
-    background: #e4f1ea;
-    color: #1f5c41;
+    background: @okBg;
+    color: @okText;
     border-radius: 16px;
 }
 QLabel[banner="fail"] {
-    background: #f8e1e1;
-    color: #8e2626;
+    background: @failBg;
+    color: @failText;
     border-radius: 16px;
 }
 QLabel[banner="info"] {
-    background: #ebe0f0;
-    color: #4f3661;
+    background: @lilac;
+    color: @accentText;
     border-radius: 16px;
 }
 
@@ -328,7 +346,7 @@ QScrollBar:vertical {
     margin: 4px 2px;
 }
 QScrollBar::handle:vertical {
-    background: #d9cfe0;
+    background: @scroll;
     border-radius: 3px;
     min-height: 40px;
 }
@@ -338,7 +356,7 @@ QScrollBar:horizontal {
     margin: 2px 4px;
 }
 QScrollBar::handle:horizontal {
-    background: #d9cfe0;
+    background: @scroll;
     border-radius: 3px;
     min-width: 40px;
 }

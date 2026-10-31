@@ -1,28 +1,81 @@
 #pragma once
 
 #include <QColor>
+#include <QString>
 
 class QApplication;
+class QWidget;
 
 namespace faxwerk::gui {
 
-// Colors taken from the Sonara theme: aubergine primary on cream.
-namespace color {
-inline const QColor primary{0x7a, 0x5a, 0x8b};
-inline const QColor primaryHover{0x6a, 0x4a, 0x7b};
-inline const QColor primaryDeep{0x4f, 0x36, 0x61};
-inline const QColor cream{0xfa, 0xf5, 0xf0};
-inline const QColor lilac{0xeb, 0xe0, 0xf0};
-inline const QColor lilacSoft{0xf5, 0xec, 0xf2};
-inline const QColor border{0xe2, 0xd2, 0xec};
-inline const QColor text{0x1f, 0x1d, 0x24};
-inline const QColor textMuted{0x6b, 0x60, 0x75};
-inline const QColor success{0x2f, 0x7d, 0x5b};
-inline const QColor warning{0x9a, 0x4a, 0x12};
-inline const QColor error{0x8e, 0x26, 0x26};
-} // namespace color
+// Color roles of the interface in three sets: light, dark ("Aubergine": the
+// aubergine and lilac of the brand on dark, slightly violet surfaces) and high
+// contrast (white text on near black, bright lilac actions with dark text).
+// faxwerk.qss and inline style sheets name them as @role (see themed()).
+struct ThemeColors
+{
+    QColor window;          // page background
+    QColor surface;         // cards, inputs, lists
+    QColor text;
+    QColor muted;           // secondary text
+    QColor accentText;      // navigation, field labels, secondary buttons
+    QColor deep;            // dark cards (sending progress, setup help)
+    QColor onDark;          // text on deep
+    QColor onDarkMuted;     // secondary text on deep
+    QColor lilac;           // chips, selected navigation, info banners
+    QColor lilacHover;
+    QColor lilacSoft;       // hover and selection backgrounds
+    QColor border;
+    QColor divider;
+    QColor scroll;          // scroll bars, sheet outlines
+    QColor primary;         // main action
+    QColor primaryHover;
+    QColor primaryPressed;
+    QColor primaryDisabled;
+    QColor primaryDisabledText;
+    QColor onPrimary;       // text on primary
+    QColor link;
+    QColor focus;           // focus ring of the main action
+    QColor focusBorder;     // focus ring of other controls
+    QColor dashed;          // "add PDF" tile
+    QColor disabledBg;
+    QColor disabledText;
+    QColor navDisabled;
+    QColor pillBg;          // current step on deep
+    QColor pillText;
+    QColor okBg, okText;
+    QColor warnBg, warnText;
+    QColor failBg, failText;
+    QColor success;         // status dots and check marks
+    QColor warning;
+    QColor error;
+    QColor searching;
+};
 
-// Sets the application font, palette and style sheet.
-void applyTheme(QApplication &app);
+enum class Appearance { System, Light, Dark, HighContrast };
+
+const ThemeColors &lightColors();
+const ThemeColors &darkColors();
+const ThemeColors &contrastColors();
+// The colors in use now.
+const ThemeColors &colors();
+bool isDarkTheme(); // dark or high contrast
+
+// Replaces @role names in a style sheet with the current colors.
+QString themed(const QString &styleSheet);
+// Sets a style sheet that uses @role names; it is themed again whenever the
+// theme changes.
+void setThemedStyleSheet(QWidget *widget, const QString &styleSheet);
+
+// Sets the application font, palette and style sheet. Appearance::System
+// follows the light or dark mode of the operating system, also when it
+// changes while the app runs, and uses high contrast where the system asks
+// for more contrast in dark mode (Qt 6.10+).
+void applyTheme(QApplication &app, Appearance appearance = Appearance::System);
+// Switches between system, light and dark at runtime.
+void setAppearance(Appearance appearance);
+
+QString appearanceName(Appearance appearance); // "system", "light", "dark", "contrast"
+Appearance appearanceFromName(const QString &name);         // unknown: System
 
 } // namespace faxwerk::gui

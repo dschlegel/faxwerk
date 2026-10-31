@@ -2,6 +2,7 @@
 
 #include "FritzPhonebook.h"
 #include "Messages.h"
+#include "Theme.h"
 #include "Widgets.h"
 
 #include "sip/SipUserAgent.h"
@@ -127,18 +128,25 @@ SetupPage::SetupPage(QWidget *parent)
     auto *helpLayout = new QVBoxLayout(help);
     helpLayout->setContentsMargins(34, 34, 34, 34);
     helpLayout->setSpacing(18);
-    auto *pills = new QHBoxLayout;
-    pills->setSpacing(8);
+    // A column of numbered steps in the assistant, a row of tabs in the
+    // settings (see showStep).
+    auto *pills = new QBoxLayout(QBoxLayout::TopToBottom);
+    pills->setSpacing(6);
+    m_pillLayout = pills;
     for (QPushButton *&pill : m_stepPills)
         pill = new QPushButton;
-    for (QPushButton *pill : m_stepPills) {
-        // Indicators only, not clickable.
-        pill->setFocusPolicy(Qt::NoFocus);
-        pill->setAttribute(Qt::WA_TransparentForMouseEvents);
+    for (int i = 0; i < 3; ++i) {
+        // Indicators in the assistant, tabs in the settings (see showStep).
+        QPushButton *pill = m_stepPills[i];
+        pill->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         pills->addWidget(pill);
+        connect(pill, &QPushButton::clicked, this, [this, i] {
+            if (m_settingsMode && leaveStep(i))
+                showStep(i);
+        });
     }
-    pills->addStretch(1);
     helpLayout->addLayout(pills);
+    helpLayout->setAlignment(pills, Qt::AlignLeft);
     helpLayout->addSpacing(8);
     m_helpTitle = new QLabel;
     m_helpTitle->setStyleSheet(QStringLiteral("font-size: 21px; font-weight: 600;"));
@@ -259,14 +267,14 @@ SetupPage::SetupPage(QWidget *parent)
     b->addStretch(1);
     auto *bButtons = new QHBoxLayout;
     bButtons->setSpacing(10);
-    auto *bookBack = new QPushButton(QStringLiteral("Zurück"));
+    m_bookBack = new QPushButton(QStringLiteral("Zurück"));
     m_bookCheck = new QPushButton(QStringLiteral("Telefonbuch prüfen"));
-    auto *bookNext = new QPushButton(QStringLiteral("Weiter"));
-    bookNext->setProperty("role", QStringLiteral("primary"));
-    bButtons->addWidget(bookBack);
+    m_bookNext = new QPushButton(QStringLiteral("Weiter"));
+    m_bookNext->setProperty("role", QStringLiteral("primary"));
+    bButtons->addWidget(m_bookBack);
     bButtons->addStretch(1);
     bButtons->addWidget(m_bookCheck);
-    bButtons->addWidget(bookNext);
+    bButtons->addWidget(m_bookNext);
     b->addLayout(bButtons);
     m_steps->addWidget(book);
     m_phonebook = new FritzPhonebook(this);
@@ -276,7 +284,7 @@ SetupPage::SetupPage(QWidget *parent)
     auto *t = new QVBoxLayout(transfer);
     t->setContentsMargins(38, 34, 38, 32);
     t->setSpacing(18);
-    auto *tTitle = new QLabel(QStringLiteral("Übertragung"));
+    auto *tTitle = new QLabel(QStringLiteral("Optionen"));
     tTitle->setProperty("role", QStringLiteral("title"));
     tTitle->setStyleSheet(QStringLiteral("font-size: 32px;"));
     t->addWidget(tTitle);
@@ -290,15 +298,22 @@ SetupPage::SetupPage(QWidget *parent)
     m_dither = new QCheckBox(QStringLiteral("Fotos standardmäßig weich rastern"));
     t->addWidget(m_ecm);
     t->addWidget(m_dither);
+    m_appearance = new QComboBox;
+    m_appearance->addItem(QStringLiteral("Wie das System"), QStringLiteral("system"));
+    m_appearance->addItem(QStringLiteral("Hell"), QStringLiteral("light"));
+    m_appearance->addItem(QStringLiteral("Dunkel"), QStringLiteral("dark"));
+    m_appearance->addItem(QStringLiteral("Hoher Kontrast"), QStringLiteral("contrast"));
+    t->addSpacing(6);
+    t->addLayout(field(QStringLiteral("Darstellung"), m_appearance));
     t->addStretch(1);
     auto *tButtons = new QHBoxLayout;
     tButtons->setSpacing(10);
-    auto *back = new QPushButton(QStringLiteral("Zurück"));
-    auto *save = new QPushButton(QStringLiteral("Speichern"));
-    save->setProperty("role", QStringLiteral("primary"));
-    tButtons->addWidget(back);
+    m_transferBack = new QPushButton(QStringLiteral("Zurück"));
+    m_save = new QPushButton(QStringLiteral("Speichern"));
+    m_save->setProperty("role", QStringLiteral("primary"));
+    tButtons->addWidget(m_transferBack);
     tButtons->addStretch(1);
-    tButtons->addWidget(save);
+    tButtons->addWidget(m_save);
     t->addLayout(tButtons);
     m_steps->addWidget(transfer);
 
@@ -326,28 +341,32 @@ SetupPage::SetupPage(QWidget *parent)
     connect(m_addLocation, &QPushButton::clicked, this, &SetupPage::addLocation);
     connect(m_removeLocation, &QPushButton::clicked, this, &SetupPage::removeLocation);
     connect(m_check, &QPushButton::clicked, this, &SetupPage::checkConnection);
+    // In the settings, "Weiter" is "Speichern" and "Zurück" is "Abbrechen".
     connect(m_next, &QPushButton::clicked, this, [this] {
-        storeForm();
-        if (validateLocations()) {
-            const QSignalBlocker blocker(m_bookLocation);
-            m_bookLocation->clear();
-            for (const Location &location : std::as_const(m_locations))
-                m_bookLocation->addItem(location.displayName());
-            m_bookLocationRow->setVisible(m_locations.size() > 1);
-            m_bookCurrent = -1;
-            loadBookForm(std::max(0, m_current));
+        if (m_settingsMode)
+            save();
+        else if (leaveStep(1))
             showStep(1);
-        }
     });
     connect(m_cancel, &QPushButton::clicked, this, &SetupPage::cancelled);
-    connect(back, &QPushButton::clicked, this, [this] { showStep(1); });
-    connect(bookBack, &QPushButton::clicked, this, [this] {
-        storeBookForm();
-        showStep(0);
+    connect(m_transferBack, &QPushButton::clicked, this, [this] {
+        if (m_settingsMode)
+            emit cancelled();
+        else if (leaveStep(1))
+            showStep(1);
     });
-    connect(bookNext, &QPushButton::clicked, this, [this] {
-        storeBookForm();
-        showStep(2);
+    connect(m_bookBack, &QPushButton::clicked, this, [this] {
+        if (m_settingsMode) {
+            emit cancelled();
+        } else if (leaveStep(0)) {
+            showStep(0);
+        }
+    });
+    connect(m_bookNext, &QPushButton::clicked, this, [this] {
+        if (m_settingsMode)
+            save();
+        else if (leaveStep(2))
+            showStep(2);
     });
     connect(m_bookLocation, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (index == m_bookCurrent || index < 0)
@@ -373,7 +392,7 @@ SetupPage::SetupPage(QWidget *parent)
                 if (ok)
                     emit phonebookRead(m_bookCheckingId, contacts);
             });
-    connect(save, &QPushButton::clicked, this, [this] { emit saved(collect()); });
+    connect(m_save, &QPushButton::clicked, this, &SetupPage::save);
 
     showStep(0);
 }
@@ -394,10 +413,60 @@ void SetupPage::load(const AppSettings &settings, bool firstRun)
     m_rate->setCurrentIndex(settings.maxRate == 14400 ? 1 : 0);
     m_ecm->setChecked(settings.ecm);
     m_dither->setChecked(settings.dither);
+    const int appearance = m_appearance->findData(settings.appearance);
+    m_appearance->setCurrentIndex(appearance >= 0 ? appearance : 0);
     m_bookCurrent = -1;
     m_phonebook->cancel();
-    m_cancel->setVisible(!firstRun);
+    m_settingsMode = !firstRun;
+    m_cancel->setVisible(m_settingsMode);
+    m_next->setText(m_settingsMode ? QStringLiteral("Speichern") : QStringLiteral("Weiter"));
+    m_bookNext->setText(m_settingsMode ? QStringLiteral("Speichern") : QStringLiteral("Weiter"));
+    m_bookBack->setText(m_settingsMode ? QStringLiteral("Abbrechen") : QStringLiteral("Zurück"));
+    m_transferBack->setText(m_settingsMode ? QStringLiteral("Abbrechen") : QStringLiteral("Zurück"));
     showStep(0);
+}
+
+bool SetupPage::leaveStep(int target)
+{
+    const int current = m_steps->currentIndex();
+    if (current == target)
+        return true;
+    if (current == 0) {
+        storeForm();
+        // The assistant only goes on with complete locations; the settings
+        // check them when saving.
+        if (!m_settingsMode && !validateLocations())
+            return false;
+    } else if (current == 1) {
+        storeBookForm();
+    }
+    if (target == 1)
+        prepareBookStep();
+    return true;
+}
+
+void SetupPage::prepareBookStep()
+{
+    const QSignalBlocker blocker(m_bookLocation);
+    m_bookLocation->clear();
+    for (const Location &location : std::as_const(m_locations))
+        m_bookLocation->addItem(location.displayName());
+    m_bookLocationRow->setVisible(m_locations.size() > 1);
+    m_bookCurrent = -1;
+    loadBookForm(std::max(0, m_current));
+}
+
+void SetupPage::save()
+{
+    if (m_steps->currentIndex() == 0)
+        storeForm();
+    else if (m_steps->currentIndex() == 1)
+        storeBookForm();
+    if (!validateLocations()) {
+        showStep(0);
+        return;
+    }
+    emit saved(collect());
 }
 
 void SetupPage::refreshLocationBox()
@@ -488,20 +557,29 @@ bool SetupPage::validateLocations()
 void SetupPage::showStep(int step)
 {
     m_steps->setCurrentIndex(step);
-    // The current step shows its name, the others only their number.
+    m_pillLayout->setDirection(m_settingsMode ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
+    // Every step shows its name. In the assistant they are numbered and only
+    // indicate the progress; in the settings they are tabs.
     static const QString names[] = {QStringLiteral("Standorte"), QStringLiteral("Telefonbuch"),
-                                    QStringLiteral("Übertragung")};
+                                    QStringLiteral("Optionen")};
     for (int i = 0; i < 3; ++i) {
-        m_stepPills[i]->setText(i == step ? QStringLiteral("%1  %2").arg(i + 1).arg(names[i]) : QString::number(i + 1));
-        m_stepPills[i]->setAccessibleName(QStringLiteral("Schritt %1: %2").arg(i + 1).arg(names[i]));
-        m_stepPills[i]->setStyleSheet(
-            i == step ? QStringLiteral("QPushButton { background: #ffffff; color: #4f3661; border: none; "
+        QPushButton *pill = m_stepPills[i];
+        pill->setText(m_settingsMode ? names[i] : QStringLiteral("%1  %2").arg(i + 1).arg(names[i]));
+        pill->setAccessibleName(m_settingsMode ? names[i] : QStringLiteral("Schritt %1: %2").arg(i + 1).arg(names[i]));
+        pill->setAttribute(Qt::WA_TransparentForMouseEvents, !m_settingsMode);
+        pill->setFocusPolicy(m_settingsMode ? Qt::TabFocus : Qt::NoFocus);
+        pill->setCursor(m_settingsMode ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        setThemedStyleSheet(pill,
+            i == step ? QStringLiteral("QPushButton { background: @pillBg; color: @pillText; border: none; "
                                        "border-radius: 14px; min-height: 28px; max-height: 28px; "
-                                       "padding: 0 13px; font-size: 13px; font-weight: 600; }")
-                      : QStringLiteral("QPushButton { background: transparent; color: #ffffff; "
+                                       "padding: 0 11px; font-size: 13px; font-weight: 600; }"
+                                       "QPushButton:focus { border: 2px solid @primary; }")
+                      : QStringLiteral("QPushButton { background: transparent; color: @onDark; "
                                        "border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 14px; "
-                                       "min-height: 26px; max-height: 26px; padding: 0 12px; "
-                                       "font-size: 13px; font-weight: 400; }"));
+                                       "min-height: 26px; max-height: 26px; padding: 0 10px; "
+                                       "font-size: 13px; font-weight: 400; }"
+                                       "QPushButton:hover { background: rgba(255, 255, 255, 0.14); }"
+                                       "QPushButton:focus { border: 2px solid #ffffff; }"));
     }
     m_helpTitle->setText(step == 2 ? QStringLiteral("Gut zu wissen") : QStringLiteral("Vorher in der FRITZ!Box"));
     m_helpText->setText(step == 0 ? kLocationsHelp : step == 1 ? kPhonebookHelp : kTransferHelp);
@@ -627,6 +705,7 @@ AppSettings SetupPage::collect()
     settings.maxRate = m_rate->currentData().toInt();
     settings.ecm = m_ecm->isChecked();
     settings.dither = m_dither->isChecked();
+    settings.appearance = m_appearance->currentData().toString();
     return settings;
 }
 

@@ -12,6 +12,7 @@
 class QBoxLayout;
 class QCheckBox;
 class QComboBox;
+class QFrame;
 class QCompleter;
 class QStandardItemModel;
 class QHBoxLayout;
@@ -61,6 +62,9 @@ public:
     void setAutoLocationHint(const QString &hint);
     QString selectedLocationId() const;
     void setDitherDefault(bool dither);
+    // Opens the file dialog for PDFs (menu "PDF öffnen …").
+    void chooseDocuments();
+    void focusRecipient();
 
 signals:
     void sendRequested(const faxwerk::gui::SendRequest &request);
@@ -74,7 +78,6 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
-    void chooseDocuments();
     void renderPreview();
     void updateSendButton();
     void suggest(QCompleter *completer, const QString &text);
@@ -108,7 +111,12 @@ private:
     QWidget *m_senderBox = nullptr;
     QLabel *m_senderSummary = nullptr;
     QPushButton *m_send = nullptr;
+    QLabel *m_sendHint = nullptr;
+    QWidget *m_sendArea = nullptr;
     QWidget *m_sendCard = nullptr;
+    QVBoxLayout *m_sendCardLayout = nullptr;
+    QFrame *m_footer = nullptr;
+    QHBoxLayout *m_footerLayout = nullptr;
 };
 
 } // namespace faxwerk::gui
