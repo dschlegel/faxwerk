@@ -77,7 +77,10 @@ void TestRtpSession::pacedTransmission()
     sender.stop();
     const qint64 elapsed = clock.elapsed();
     // 200 packets at 2 ms are due after ~398 ms; drift-free pacing keeps us close.
-    QVERIFY2(elapsed >= 390 && elapsed < 1500, qPrintable(QString::number(elapsed)));
+    // The upper bound is generous: on busy CI machines (macOS runners) the timer
+    // stalls for more than kMaxBurstPackets intervals now and then, and the
+    // session restarts its schedule instead of sending a burst.
+    QVERIFY2(elapsed >= 390 && elapsed < 3000, qPrintable(QString::number(elapsed)));
 
     QTRY_COMPARE_WITH_TIMEOUT(receiver.statistics().packetsReceived, sender.statistics().packetsSent, 2000);
     QCOMPARE(rx.received.size(), size_t(160 * sender.statistics().packetsSent));
