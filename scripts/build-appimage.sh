@@ -3,7 +3,8 @@
 # Meant to run inside the dev container: scripts/dev.sh appimage
 #
 # The AppImage contains the desktop app (faxwerk-gui, started by default) and
-# the command line tool. Qt, spandsp and libtiff are bundled by linuxdeploy.
+# the command line tool. Qt, spandsp, libtiff and libappimageupdate (for the
+# self-update of the desktop app) are bundled by linuxdeploy.
 #
 # Environment:
 #   FAXWERK_UPDATE_INFORMATION  AppImage update information, embedded so that
@@ -12,6 +13,8 @@
 #                               (the latest GitHub release of dschlegel/faxwerk).
 #                               "none": no update information, no .zsync file.
 #   FAXWERK_APPIMAGE_VERSION    version in the file name (default: git describe)
+#   FAXWERK_APPIMAGEUPDATE      CMake option for the self-update (default: ON, i.e.
+#                               fail without libappimageupdate; OFF builds without)
 #   OUT_DIR                     output directory (default: out/)
 #   LINUXDEPLOY_URL, LINUXDEPLOY_QT_URL
 #                               download locations of the tools (default: continuous builds)
@@ -51,7 +54,8 @@ fetch "$LINUXDEPLOY_QT_URL" "linuxdeploy-plugin-qt-$ARCH.AppImage"
 cmake -S "$REPO_DIR" -B "$WORK/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DFAXWERK_BUILD_TESTS=OFF
+    -DFAXWERK_BUILD_TESTS=OFF \
+    -DFAXWERK_APPIMAGEUPDATE="${FAXWERK_APPIMAGEUPDATE:-ON}"
 cmake --build "$WORK/build"
 rm -rf "$APPDIR"
 DESTDIR="$APPDIR" cmake --install "$WORK/build"
@@ -86,6 +90,11 @@ rm -f "$OUTPUT" "$OUTPUT.zsync"
     --icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/faxwerk.svg" \
     --plugin qt \
     --output appimage
+
+if [ "${FAXWERK_APPIMAGEUPDATE:-ON}" != OFF ] && ! compgen -G "$APPDIR/usr/lib/libappimageupdate.so*" >/dev/null; then
+    echo "libappimageupdate was not bundled into the AppImage" >&2
+    exit 1
+fi
 
 echo
 echo "Built: $OUT_DIR/$OUTPUT"

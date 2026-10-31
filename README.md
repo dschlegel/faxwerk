@@ -227,6 +227,16 @@ FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86
 
 On GitHub the repository variable `FAXWERK_UPDATE_INFORMATION` does the same.
 
+The desktop app updates itself with
+[libappimageupdate](https://github.com/AppImageCommunity/AppImageUpdate): a few seconds
+after the start it checks the update information in the background, and when a new
+release is there, an "Update verfügbar" button appears in the top bar. It downloads only
+the changed blocks, puts `Faxwerk-<new version>-x86_64.AppImage` next to the old file,
+removes the old one and offers a restart. The dev container builds libappimageupdate
+from source into `/usr/local`; the CMake option `FAXWERK_APPIMAGEUPDATE` (`AUTO`, `ON`,
+`OFF`) controls whether it is used. Outside an AppImage (`$APPIMAGE` not set) the app
+does not look for updates.
+
 ### Building by hand
 
 The scripts above wrap these steps. With spandsp installed in a prefix:
