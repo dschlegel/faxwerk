@@ -8,8 +8,9 @@ class QWidget;
 
 namespace faxwerk::gui {
 
-// Color roles of the interface, once light and once dark ("Aubergine": the
-// aubergine and lilac of the brand on dark, slightly violet surfaces).
+// Color roles of the interface in three sets: light, dark ("Aubergine": the
+// aubergine and lilac of the brand on dark, slightly violet surfaces) and high
+// contrast (white text on near black, bright lilac actions with dark text).
 // faxwerk.qss and inline style sheets name them as @role (see themed()).
 struct ThemeColors
 {
@@ -31,6 +32,7 @@ struct ThemeColors
     QColor primaryHover;
     QColor primaryPressed;
     QColor primaryDisabled;
+    QColor primaryDisabledText;
     QColor onPrimary;       // text on primary
     QColor link;
     QColor focus;           // focus ring of the main action
@@ -50,13 +52,14 @@ struct ThemeColors
     QColor searching;
 };
 
-enum class Appearance { System, Light, Dark };
+enum class Appearance { System, Light, Dark, HighContrast };
 
 const ThemeColors &lightColors();
 const ThemeColors &darkColors();
+const ThemeColors &contrastColors();
 // The colors in use now.
 const ThemeColors &colors();
-bool isDarkTheme();
+bool isDarkTheme(); // dark or high contrast
 
 // Replaces @role names in a style sheet with the current colors.
 QString themed(const QString &styleSheet);
@@ -66,12 +69,13 @@ void setThemedStyleSheet(QWidget *widget, const QString &styleSheet);
 
 // Sets the application font, palette and style sheet. Appearance::System
 // follows the light or dark mode of the operating system, also when it
-// changes while the app runs.
+// changes while the app runs, and uses high contrast where the system asks
+// for more contrast in dark mode (Qt 6.10+).
 void applyTheme(QApplication &app, Appearance appearance = Appearance::System);
 // Switches between system, light and dark at runtime.
 void setAppearance(Appearance appearance);
 
-QString appearanceName(Appearance appearance);              // "system", "light", "dark"
+QString appearanceName(Appearance appearance); // "system", "light", "dark", "contrast"
 Appearance appearanceFromName(const QString &name);         // unknown: System
 
 } // namespace faxwerk::gui

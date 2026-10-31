@@ -214,7 +214,7 @@ QPushButton[role="primary"]:focus {
 }
 QPushButton[role="primary"]:disabled {
     background: @primaryDisabled;
-    color: @onPrimary;
+    color: @primaryDisabledText;
 }
 QPushButton[role="primary"][size="big"] {
     min-height: 56px;

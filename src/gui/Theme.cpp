@@ -1,5 +1,8 @@
 #include "Theme.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+#include <QAccessibilityHints>
+#endif
 #include <QAbstractButton>
 #include <QApplication>
 #include <QEvent>
@@ -42,6 +45,7 @@ ThemeColors makeLight()
     c.primaryHover = QColor(0x6a, 0x4a, 0x7b);
     c.primaryPressed = QColor(0x4f, 0x36, 0x61);
     c.primaryDisabled = QColor(0xcb, 0xbc, 0xd3);
+    c.primaryDisabledText = QColor(0xff, 0xff, 0xff);
     c.onPrimary = QColor(0xff, 0xff, 0xff);
     c.link = QColor(0x6a, 0x4a, 0x7b);
     c.focus = QColor(0x1f, 0x1d, 0x24);
@@ -86,6 +90,7 @@ ThemeColors makeDark()
     c.primaryHover = QColor(0xb0, 0x92, 0xc4);
     c.primaryPressed = QColor(0x86, 0x68, 0x9c);
     c.primaryDisabled = QColor(0x4b, 0x3d, 0x57);
+    c.primaryDisabledText = QColor(0xc8, 0xb8, 0xd4);
     c.onPrimary = QColor(0xff, 0xff, 0xff);
     c.link = QColor(0xc9, 0xb0, 0xda);
     c.focus = QColor(0xf1, 0xec, 0xf4);
@@ -106,6 +111,53 @@ ThemeColors makeDark()
     c.warning = QColor(0xe3, 0x9a, 0x5c);
     c.error = QColor(0xec, 0x7f, 0x7f);
     c.searching = QColor(0x8e, 0x74, 0xa3);
+    return c;
+}
+
+ThemeColors makeContrast()
+{
+    // Variant C: as much contrast as possible, borders that stay visible,
+    // and disabled text that is still readable.
+    ThemeColors c;
+    c.window = QColor(0x0b, 0x0a, 0x0d);
+    c.surface = QColor(0x16, 0x13, 0x1a);
+    c.text = QColor(0xff, 0xff, 0xff);
+    c.muted = QColor(0xc4, 0xb9, 0xcd);
+    c.accentText = QColor(0xec, 0xdf, 0xf6);
+    c.deep = QColor(0x1f, 0x17, 0x27);
+    c.onDark = QColor(0xff, 0xff, 0xff);
+    c.onDarkMuted = QColor(0xdd, 0xd0, 0xe8);
+    c.lilac = QColor(0x2d, 0x24, 0x36);
+    c.lilacHover = QColor(0x3a, 0x2f, 0x45);
+    c.lilacSoft = QColor(0x24, 0x1d, 0x2b);
+    c.border = QColor(0x6a, 0x5a, 0x7a);
+    c.divider = QColor(0x4a, 0x3e, 0x56);
+    c.scroll = QColor(0x6a, 0x5a, 0x7a);
+    c.primary = QColor(0xc9, 0xa8, 0xe0);
+    c.primaryHover = QColor(0xd9, 0xbf, 0xeb);
+    c.primaryPressed = QColor(0xb8, 0x93, 0xd1);
+    c.primaryDisabled = QColor(0x3a, 0x2f, 0x45);
+    c.primaryDisabledText = QColor(0xc4, 0xb9, 0xcd);
+    c.onPrimary = QColor(0x1a, 0x12, 0x20);
+    c.link = QColor(0xe0, 0xc8, 0xf0);
+    c.focus = QColor(0xff, 0xff, 0xff);
+    c.focusBorder = QColor(0xff, 0xff, 0xff);
+    c.dashed = QColor(0x9a, 0x84, 0xb0);
+    c.disabledBg = QColor(0x1a, 0x16, 0x1e);
+    c.disabledText = QColor(0x8f, 0x84, 0x99);
+    c.navDisabled = QColor(0x7a, 0x6f, 0x84);
+    c.pillBg = QColor(0xff, 0xff, 0xff);
+    c.pillText = QColor(0x1f, 0x17, 0x27);
+    c.okBg = QColor(0x0f, 0x2b, 0x1d);
+    c.okText = QColor(0xa6, 0xf0, 0xc4);
+    c.warnBg = QColor(0x33, 0x20, 0x0d);
+    c.warnText = QColor(0xff, 0xc5, 0x8f);
+    c.failBg = QColor(0x3a, 0x12, 0x15);
+    c.failText = QColor(0xff, 0xb3, 0xb3);
+    c.success = QColor(0x6f, 0xe0, 0xa5);
+    c.warning = QColor(0xff, 0xad, 0x66);
+    c.error = QColor(0xff, 0x8a, 0x8a);
+    c.searching = QColor(0xa9, 0x8b, 0xc4);
     return c;
 }
 
@@ -130,6 +182,7 @@ const QHash<QString, QColor ThemeColors::*> &roles()
         {QStringLiteral("primaryHover"), &ThemeColors::primaryHover},
         {QStringLiteral("primaryPressed"), &ThemeColors::primaryPressed},
         {QStringLiteral("primaryDisabled"), &ThemeColors::primaryDisabled},
+        {QStringLiteral("primaryDisabledText"), &ThemeColors::primaryDisabledText},
         {QStringLiteral("onPrimary"), &ThemeColors::onPrimary},
         {QStringLiteral("link"), &ThemeColors::link},
         {QStringLiteral("focus"), &ThemeColors::focus},
@@ -159,6 +212,7 @@ struct State
     QPointer<QApplication> app;
     Appearance appearance = Appearance::System;
     bool dark = false;
+    bool contrast = false; // high contrast colors (dark as well)
     bool systemPaletteDark = false; // fallback before Qt 6.5
     QString styleTemplate;
     bool applying = false;
@@ -178,6 +232,15 @@ bool systemPrefersDark()
         return scheme == Qt::ColorScheme::Dark;
 #endif
     return state().systemPaletteDark;
+}
+
+bool systemPrefersContrast()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    return QGuiApplication::styleHints()->accessibility()->contrastPreference() == Qt::ContrastPreference::HighContrast;
+#else
+    return false;
+#endif
 }
 
 // Large type reads too loose at the default letter spacing: tighten it in
@@ -230,11 +293,15 @@ void apply()
     // Native parts (title bar, file dialogs) follow a forced choice too.
     // Unset it first, so that "System" reads the system's own scheme.
     QGuiApplication::styleHints()->setColorScheme(
-        s.appearance == Appearance::Dark    ? Qt::ColorScheme::Dark
-        : s.appearance == Appearance::Light ? Qt::ColorScheme::Light
-                                            : Qt::ColorScheme::Unknown);
+        s.appearance == Appearance::Dark || s.appearance == Appearance::HighContrast ? Qt::ColorScheme::Dark
+        : s.appearance == Appearance::Light                                          ? Qt::ColorScheme::Light
+                                                                                     : Qt::ColorScheme::Unknown);
 #endif
-    s.dark = s.appearance == Appearance::Dark || (s.appearance == Appearance::System && systemPrefersDark());
+    const bool systemDark = s.appearance == Appearance::System && systemPrefersDark();
+    // High contrast when chosen, or when the system asks for more contrast
+    // in dark mode (the light colors already have strong contrast).
+    s.contrast = s.appearance == Appearance::HighContrast || (systemDark && systemPrefersContrast());
+    s.dark = s.contrast || s.appearance == Appearance::Dark || systemDark;
     const ThemeColors &c = colors();
     QPalette palette = s.app->palette();
     palette.setColor(QPalette::Window, c.window);
@@ -279,9 +346,15 @@ const ThemeColors &darkColors()
     return c;
 }
 
+const ThemeColors &contrastColors()
+{
+    static const ThemeColors c = makeContrast();
+    return c;
+}
+
 const ThemeColors &colors()
 {
-    return state().dark ? darkColors() : lightColors();
+    return state().contrast ? contrastColors() : state().dark ? darkColors() : lightColors();
 }
 
 bool isDarkTheme()
@@ -344,6 +417,13 @@ void applyTheme(QApplication &app, Appearance appearance)
             apply();
     });
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    QObject::connect(QGuiApplication::styleHints()->accessibility(), &QAccessibilityHints::contrastPreferenceChanged,
+                     &app, [] {
+                         if (state().appearance == Appearance::System)
+                             apply();
+                     });
+#endif
     apply();
 }
 
@@ -360,6 +440,7 @@ QString appearanceName(Appearance appearance)
     switch (appearance) {
     case Appearance::Light: return QStringLiteral("light");
     case Appearance::Dark: return QStringLiteral("dark");
+    case Appearance::HighContrast: return QStringLiteral("contrast");
     case Appearance::System: break;
     }
     return QStringLiteral("system");
@@ -371,6 +452,8 @@ Appearance appearanceFromName(const QString &name)
         return Appearance::Light;
     if (name == QLatin1String("dark"))
         return Appearance::Dark;
+    if (name == QLatin1String("contrast"))
+        return Appearance::HighContrast;
     return Appearance::System;
 }
 

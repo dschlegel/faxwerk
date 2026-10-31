@@ -45,7 +45,7 @@ struct AppSettings
     QList<Location> locations;
     bool autoSelect = true; // pick the reachable location before each fax
     QString preferredId;    // used when autoSelect is off
-    QString appearance = QStringLiteral("system"); // "system", "light" or "dark"
+    QString appearance = QStringLiteral("system"); // "system", "light", "dark" or "contrast"
 
     // [sip], shared by all locations
     QString displayName;

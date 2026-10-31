@@ -302,6 +302,7 @@ SetupPage::SetupPage(QWidget *parent)
     m_appearance->addItem(QStringLiteral("Wie das System"), QStringLiteral("system"));
     m_appearance->addItem(QStringLiteral("Hell"), QStringLiteral("light"));
     m_appearance->addItem(QStringLiteral("Dunkel"), QStringLiteral("dark"));
+    m_appearance->addItem(QStringLiteral("Hoher Kontrast"), QStringLiteral("contrast"));
     t->addSpacing(6);
     t->addLayout(field(QStringLiteral("Darstellung"), m_appearance));
     t->addStretch(1);

@@ -23,7 +23,8 @@ void paintLogo(QPainter &painter, const QRectF &rect)
     painter.scale(rect.width() / 32.0, rect.height() / 32.0);
 
     painter.setPen(Qt::NoPen);
-    painter.setBrush(colors().primary);
+    // The brand mark keeps its colors in every theme.
+    painter.setBrush(lightColors().primary);
     painter.drawRoundedRect(QRectF(0, 0, 32, 32), 9, 9);
 
     QPen pen(Qt::white, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);

@@ -367,8 +367,11 @@ Faxwerk*. The app uses the system font of each platform.
 
 **Dark mode.** The app follows the light or dark mode of the system and switches along
 when it changes (Qt 6.5 or newer; older Qt reads the system palette at start).
-*Einstellungen › Optionen › Darstellung* overrides it with *Hell* or *Dunkel*
-(`gui/appearance` in the configuration file: `system`, `light`, `dark`). The dark
+*Einstellungen › Optionen › Darstellung* overrides it with *Hell*, *Dunkel* or *Hoher
+Kontrast* (`gui/appearance` in the configuration file: `system`, `light`, `dark`,
+`contrast`). High contrast has white text on near black, borders that stay visible and
+bright lilac actions with dark text; following the system, the app uses it in dark mode
+when the system asks for more contrast (Qt 6.10 or newer). The dark
 colors keep the aubergine of the brand on slightly violet surfaces; the page previews
 and the transmission report stay white, as on paper. All colors are roles in
 `src/gui/Theme.cpp` (`ThemeColors`), which the style sheet refers to as `@role`.

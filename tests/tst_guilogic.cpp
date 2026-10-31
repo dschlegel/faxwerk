@@ -116,11 +116,16 @@ void TestGuiLogic::themedStyleSheet()
     QVERIFY(gui::darkColors().window.lightness() < 64);
     QVERIFY(gui::lightColors().window.lightness() > 192);
     QVERIFY(gui::darkColors().text.lightness() > 192);
+    // High contrast: darker window, whiter text, dark text on the main action.
+    QVERIFY(gui::contrastColors().window.lightness() < gui::darkColors().window.lightness());
+    QCOMPARE(gui::contrastColors().text, QColor(Qt::white));
+    QVERIFY(gui::contrastColors().onPrimary.lightness() < 64);
 }
 
 void TestGuiLogic::appearanceNames()
 {
-    for (auto appearance : {gui::Appearance::System, gui::Appearance::Light, gui::Appearance::Dark})
+    for (auto appearance :
+         {gui::Appearance::System, gui::Appearance::Light, gui::Appearance::Dark, gui::Appearance::HighContrast})
         QCOMPARE(gui::appearanceFromName(gui::appearanceName(appearance)), appearance);
     QCOMPARE(gui::appearanceFromName(QStringLiteral("purple")), gui::Appearance::System);
 }
