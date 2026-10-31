@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Faxwerk
+GenericName=Fax senden
+Comment=PDF-Dokumente als Fax über den Router senden
+Exec=faxwerk-gui %F
+Icon=faxwerk
+Terminal=false
+Categories=Office;Network;
+MimeType=application/pdf;
+Keywords=Fax;PDF;SIP;

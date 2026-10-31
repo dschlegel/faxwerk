@@ -1,0 +1,143 @@
+# Builds, tests and packages Faxwerk for Linux, Windows and macOS.
+#
+# - Every push and pull request: the packages are attached to the workflow
+#   run as artifacts.
+#     Linux:   Faxwerk-<version>-x86_64.AppImage (+ .zsync)
+#     Windows: Faxwerk-<version>-windows-x64-setup.exe
+#     macOS:   Faxwerk-<version>-macos-arm64.dmg (ad-hoc signed, not notarized)
+# - Tags "v*" (e.g. v0.2.0): additionally a GitHub release with all of them.
+#
+# AppImage update information (for AppImageUpdate): set the repository
+# variable FAXWERK_UPDATE_INFORMATION (Settings > Secrets and variables >
+# Actions > Variables), for example
+#   zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync
+# Without it, the AppImage points at the latest release of this repository.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # spandsp has no releases with the current API; pin a commit here for
+  # reproducible builds.
+  SPANDSP_REF: master
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe needs the tags for the version
+
+      - name: Build dev container image
+        run: docker build -t faxwerk-dev:latest -f .devcontainer/Dockerfile .devcontainer
+
+      - name: Build and test
+        run: scripts/dev.sh test
+
+      - name: Build AppImage
+        env:
+          FAXWERK_UPDATE_INFORMATION: ${{ vars.FAXWERK_UPDATE_INFORMATION || format('gh-releases-zsync|{0}|{1}|latest|Faxwerk-*-x86_64.AppImage.zsync', github.repository_owner, github.event.repository.name) }}
+        run: scripts/dev.sh appimage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faxwerk-linux
+          path: out/*
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git make which diffutils autoconf automake libtool
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-libtiff
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-pdf
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - uses: actions/cache@v4
+        with:
+          path: build/spandsp/prefix
+          key: spandsp-windows-ucrt64-${{ env.SPANDSP_REF }}
+
+      - name: Build, test and package
+        run: scripts/package-windows.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faxwerk-windows
+          path: out/*
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-14 # Apple Silicon; the app needs macOS 14 or newer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: brew install qt libtiff autoconf automake libtool ninja pkgconf
+
+      - uses: actions/cache@v4
+        with:
+          path: build/spandsp/prefix
+          key: spandsp-macos14-arm64-${{ env.SPANDSP_REF }}
+
+      - name: Build, test and package
+        run: scripts/package-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faxwerk-macos
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Faxwerk-*
+          path: out
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Faxwerk ${GITHUB_REF_NAME#v}" \
+            --generate-notes

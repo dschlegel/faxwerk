@@ -23,6 +23,16 @@ enum class FaxStatus {
 
 QString faxStatusName(FaxStatus status);
 
+// Coarse progress of a delivery, for user interfaces.
+enum class FaxPhase {
+    Rendering,    // PDF -> fax pages
+    Registering,  // signing in at the router
+    Dialing,      // call placed, waiting for the remote side to answer
+    Connected,    // call answered, fax handshake running
+    Transferring, // fax parameters agreed, pages are being sent
+    HangingUp,    // ending the call and signing off
+};
+
 struct FaxSendRequest
 {
     QString destination; // number to dial
@@ -61,6 +71,8 @@ public:
 
 signals:
     void statusChanged(const QString &status);
+    void phaseChanged(faxwerk::FaxPhase phase);
+    void negotiated(int bitRate, bool ecm, const QString &remoteIdent);
     void pageTransferred(int pages, int total);
     void finished(const faxwerk::FaxOutcome &outcome);
     void logMessage(const QString &message);
@@ -71,3 +83,4 @@ signals:
 } // namespace faxwerk
 
 Q_DECLARE_METATYPE(faxwerk::FaxOutcome)
+Q_DECLARE_METATYPE(faxwerk::FaxPhase)

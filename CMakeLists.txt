@@ -13,6 +13,7 @@ if(_faxwerk_name_upper MATCHES "FRITZ")
 endif()
 
 option(FAXWERK_BUILD_TESTS "Build the unit and integration tests" ON)
+option(FAXWERK_BUILD_GUI "Build the desktop application" ON)
 option(FAXWERK_WERROR "Treat compiler warnings as errors" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -44,6 +45,10 @@ endfunction()
 
 add_subdirectory(src/core)
 add_subdirectory(src/cli)
+if(FAXWERK_BUILD_GUI)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+    add_subdirectory(src/gui)
+endif()
 
 if(FAXWERK_BUILD_TESTS)
     enable_testing()

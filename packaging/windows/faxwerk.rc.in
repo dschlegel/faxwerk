@@ -1,0 +1,30 @@
+// Windows resources of the desktop app: icon and version information.
+// Configured by src/gui/CMakeLists.txt.
+
+#include <winver.h>
+
+IDI_ICON1 ICON "@FAXWERK_ICO@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040704B0"
+        BEGIN
+            VALUE "FileDescription", "@FAXWERK_PRODUCT_NAME@"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "faxwerk-gui"
+            VALUE "OriginalFilename", "faxwerk-gui.exe"
+            VALUE "ProductName", "@FAXWERK_PRODUCT_NAME@"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x407, 1200
+    END
+END

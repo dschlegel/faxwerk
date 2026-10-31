@@ -5,11 +5,13 @@ such as an AVM FRITZ!Box. It registers with the router over SIP as an IP phone, 
 destination and runs the T.30 fax protocol in software (spandsp) over a G.711 audio
 stream. You don't need a fax modem, an ISDN card or CAPI.
 
-Windows and macOS are the target platforms. Development and testing currently happen on
-Linux in a Docker dev container.
+Windows and macOS are the target platforms, with installers for both. Development
+happens on Linux in a Docker dev container, and there is a Linux AppImage as well.
 
-> **Status:** command line tool only. A GUI and T.38 are planned but not part of this
-> step. The architecture has a replaceable transport backend for them (see
+![Faxwerk: a new fax with three pages, ready to send](docs/screenshots/neues-fax.png)
+
+> **Status:** desktop app (Qt Widgets, German user interface) and command line tool.
+> T.38 is planned. The architecture has a replaceable transport backend for it (see
 > [Architecture](#architecture)).
 
 *FRITZ!Box is a trademark of AVM GmbH. Faxwerk is not affiliated with AVM. The product
@@ -23,10 +25,10 @@ CMake refuses names that contain "FRITZ".*
 - [Features](#features)
 - [Building in the dev container (Linux)](#building-in-the-dev-container-linux)
 - [Building against upstream spandsp](#building-against-upstream-spandsp)
-- [Building on macOS](#building-on-macos)
-- [Building on Windows](#building-on-windows)
+- [Packages and installers](#packages-and-installers)
 - [Setting up the FRITZ!Box](#setting-up-the-fritzbox)
 - [First practical test](#first-practical-test)
+- [Desktop app](#desktop-app)
 - [Command line reference](#command-line-reference)
 - [Configuration file](#configuration-file)
 - [Exit codes](#exit-codes)
@@ -105,60 +107,138 @@ The script clones spandsp to `build/upstream/spandsp`, installs it to
 `build/upstream/prefix`, configures Faxwerk with `CMAKE_PREFIX_PATH` pointing there, checks
 that the new API was detected and runs ctest.
 
-## Building on macOS
+## Packages and installers
+
+Windows and macOS are the main targets. Each platform has one script that builds the
+working tree, runs the tests and packages the result into `out/`:
+
+| Platform | Command | Result |
+|----------|---------|--------|
+| Windows | `scripts/package-windows.sh` (MSYS2 UCRT64 shell) | `Faxwerk-<version>-windows-x64-setup.exe` |
+| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` |
+| Linux | `scripts/dev.sh appimage` (dev container) | `Faxwerk-<version>-x86_64.AppImage` |
+
+The version comes from `git describe`. Windows and macOS have no usable spandsp
+package, so both scripts first build upstream spandsp with `scripts/build-spandsp.sh`
+into `build/spandsp/prefix` (set `SPANDSP_REF` to pin a commit). `SKIP_TESTS=1` skips
+ctest.
+
+`.github/workflows/build.yml` runs all three on GitHub for every push and pull request
+and attaches the packages to the run. A tag `v*` also creates a GitHub release with all
+of them.
+
+### Windows
+
+Install [MSYS2](https://www.msys2.org) and [Inno Setup 6](https://jrsoftware.org/isinfo.php),
+then in the *MSYS2 UCRT64* shell:
 
 ```sh
-brew install cmake ninja pkg-config qt libtiff autoconf automake libtool
+pacman -S --needed git make which diffutils autoconf automake libtool \
+    mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,libtiff,qt6-base,qt6-pdf}
+scripts/package-windows.sh
+```
 
-# spandsp from source (upstream API)
-git clone https://github.com/freeswitch/spandsp.git
-cd spandsp
-./bootstrap.sh
-./configure --prefix="$HOME/opt/spandsp" \
-    CPPFLAGS="-I$(brew --prefix libtiff)/include" LDFLAGS="-L$(brew --prefix libtiff)/lib"
-make -j"$(sysctl -n hw.ncpu)" && make install
-cd ..
+The script copies the programs into `build/windows/dist`. `windeployqt` adds Qt to that
+folder, and the script then adds every other DLL the programs load (the MinGW runtime,
+spandsp, libtiff and their dependencies). The folder runs as it is. Inno Setup
+(`packaging/windows/faxwerk.iss`) turns it into an installer with a German and an
+English user interface. The installer:
 
-# Faxwerk
+- installs to `C:\Program Files\Faxwerk`,
+- adds a Start menu entry and an optional desktop icon,
+- adds "Open with" for PDFs (it doesn't become the default PDF viewer),
+- adds a firewall rule that allows incoming UDP for `faxwerk-gui.exe` and `faxwerk.exe`
+  in private networks (the router sends SIP requests and RTP audio to Faxwerk),
+- removes all of this again when it is uninstalled.
+
+The installer isn't signed, so Windows SmartScreen warns the first time it runs:
+*Weitere Informationen › Trotzdem ausführen*.
+
+**Building on Linux in a Windows VM.** `scripts/windows-vm.sh` runs Windows 11 in Docker
+([dockur/windows](https://github.com/dockur/windows), needs KVM) and builds the working
+tree there, including uncommitted changes:
+
+```sh
+scripts/windows-vm.sh up      # first time: downloads and installs Windows, MSYS2 and Inno Setup (30–60 min)
+scripts/windows-vm.sh build   # installer in out/windows/
+scripts/windows-vm.sh stop
+```
+
+The VM's screen is at http://127.0.0.1:8006 (user and password `faxwerk`) for trying the
+installer. Disk and SSH key live in `~/.local/share/faxwerk-windows-vm`.
+
+### macOS
+
+Install Homebrew and the Xcode command line tools (`xcode-select --install`), then:
+
+```sh
+brew install qt libtiff autoconf automake libtool ninja pkgconf cmake
+scripts/package-macos.sh
+```
+
+The result is `build/macos/dist/Faxwerk.app` and a disk image. `macdeployqt` copies Qt,
+spandsp and libtiff into the bundle. The command line tool is inside the bundle at
+`Faxwerk.app/Contents/Helpers/faxwerk`. The bundle declares PDF as a document type
+("Open with" in Finder). It also has the local network usage text that macOS 15 and
+later show before the app may reach the router.
+
+**Installing on macOS without a Developer ID.** Without an Apple Developer ID
+certificate, the app is only signed ad hoc and not notarized. Gatekeeper blocks the
+first start of a downloaded copy:
+
+1. Open the disk image and drag *Faxwerk* to *Programme*.
+2. Start it once. macOS refuses to open it.
+3. Go to *Systemeinstellungen › Datenschutz & Sicherheit* and choose *Dennoch öffnen*
+   (on macOS 14 a right click on the app › *Öffnen* is enough).
+
+Alternatively remove the quarantine flag in the terminal:
+`xattr -dr com.apple.quarantine /Applications/Faxwerk.app`. A copy built on the Mac
+itself with `scripts/package-macos.sh` has no quarantine flag and starts directly.
+
+The GitHub build runs on Apple Silicon with Homebrew's libraries, so that disk image
+needs an Apple Silicon Mac with macOS 14 or newer. For an Intel Mac, run the script on
+that Mac.
+
+### Linux AppImage
+
+```sh
+scripts/dev.sh appimage
+```
+
+This builds a release version in the dev container and packages it with
+[linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) and its Qt plugin. The script
+downloads both into `build/appimage/tools` on the first run. The AppImage starts the
+desktop app, and the command line tool is in it as `usr/bin/faxwerk`. The container is
+Ubuntu 24.04, so the AppImage needs glibc 2.39 or newer.
+
+To let [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find new
+versions, pass the update information. The script then also writes a `.zsync` file that
+must be published next to the AppImage:
+
+```sh
+FAXWERK_UPDATE_INFORMATION='zsync|https://example.org/faxwerk/Faxwerk-latest-x86_64.AppImage.zsync' \
+    scripts/dev.sh appimage
+```
+
+On GitHub the update information comes from the repository variable
+`FAXWERK_UPDATE_INFORMATION`. Without that variable, it points at the latest release of
+the repository (`gh-releases-zsync|<owner>|<repo>|latest|Faxwerk-*-x86_64.AppImage.zsync`).
+
+### Building by hand
+
+The scripts above wrap these steps. With spandsp installed in a prefix:
+
+```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix libtiff);$HOME/opt/spandsp"
+    -DCMAKE_PREFIX_PATH="<Qt>;<libtiff>;<spandsp prefix>"
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Homebrew's `qt` formula includes the Qt PDF module. spandsp is linked dynamically
-(`libspandsp.dylib`), so when you distribute the app bundle, ship it and run
-`macdeployqt`.
-
-## Building on Windows
-
-Two options:
-
-**MSYS2 (UCRT64), recommended because spandsp builds there with autotools:**
-
-```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake \
-    mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-libtiff \
-    mingw-w64-ucrt-x86_64-qt6-base autoconf automake libtool git
-# Qt PDF: install the MSYS2 package that provides Qt6Pdf
-# (check with: pacman -Ss qt6 | grep -i pdf)
-
-git clone https://github.com/freeswitch/spandsp.git
-cd spandsp && ./bootstrap.sh && ./configure --prefix=/ucrt64/opt/spandsp && make -j && make install && cd ..
-
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64/opt/spandsp
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-**MSVC + vcpkg:** `vcpkg install tiff` provides libtiff. Get Qt including *Qt PDF* from the
-Qt online installer or vcpkg. Build spandsp from source first (for example with MSYS2 as
-above, or with its Visual Studio project files) and pass its prefix through
-`CMAKE_PREFIX_PATH` or `SpanDSP_ROOT`. `FindSpanDSP.cmake` falls back to
-`find_path`/`find_library` when pkg-config is missing.
-
-`windeployqt` ships the Qt DLLs. `libspandsp-*.dll` and the libtiff DLL must sit next to
-`faxwerk.exe` because both are linked dynamically.
+On macOS the Qt and libtiff prefixes are `$(brew --prefix qt)` and
+`$(brew --prefix libtiff)`. In MSYS2 only the spandsp prefix is needed. MSVC also works
+when spandsp is built separately: `FindSpanDSP.cmake` falls back to
+`find_path`/`find_library` without pkg-config and honors `SpanDSP_ROOT`.
 
 ## Setting up the FRITZ!Box
 
@@ -207,6 +287,74 @@ To check how a PDF will look as a fax without sending it:
 ```sh
 faxwerk render --pdf letter.pdf --out letter.tif [--dither]
 ```
+
+## Desktop app
+
+`faxwerk-gui` (`Faxwerk.app` on macOS) uses the same configuration file as the command
+line tool. On the first start it opens a short setup in three steps: the routers (IP
+phone credentials with a button that tests the registration, header line and station
+ID), an optional FRITZ!Box user for the phonebook, and the transfer options. After that
+the app has these screens:
+
+- **Neues Fax:** PDFs are added with the file dialog, by drag and drop or as command line
+  arguments. The pages are shown rasterized the way the recipient will get them. The
+  screen also has the recipient number with an optional name and the last used
+  recipients. Typing part of a name or number suggests matching contacts from the
+  FRITZ!Box phonebook. An unknown number with a name can be saved there with *Als
+  Kontakt speichern*.
+- **Sending:** the progress of the current fax (sign in, dial, handshake, pages, hang up)
+  and the result, with retry and edit actions. Closing the window while a fax is being
+  sent hangs up and unregisters first.
+- **Gesendet:** every send attempt with its result in plain language, saved in
+  `journal.json` in the app data directory (`%APPDATA%\Faxwerk` on Windows,
+  `~/Library/Application Support/Faxwerk` on macOS, `~/.local/share/Faxwerk` on Linux). Entries can be sent again or saved as a PDF
+  transmission report.
+- **Kontakte:** the phonebooks of the routers, with search. Selected entries can be
+  changed, and new ones added; both are saved in the FRITZ!Box.
+
+| Sending | Result |
+| --- | --- |
+| ![Fax being sent, page 2 of 3](docs/screenshots/senden.png) | ![Fax delivered](docs/screenshots/gesendet.png) |
+| **Gesendet** | **Kontakte** |
+| ![Journal of sent faxes](docs/screenshots/journal.png) | ![Contacts from the FRITZ!Box phonebook](docs/screenshots/kontakte.png) |
+| **Suggestions while typing** | **Setup** |
+| ![Phonebook suggestions for the recipient](docs/screenshots/vorschlag.png) | ![Router locations in the settings](docs/screenshots/einrichtung.png) |
+
+**Locations.** The app can send through several routers, for example one per practice
+reached over VPN. Each location has its own address, IP phone credentials, header line and
+station ID. With automatic selection (the default), the app registers at all locations in
+parallel before each fax, unregisters right away and sends through the first location in
+list order that accepted the registration. It also does this at start, when the window
+comes back to the front (e.g. after switching the VPN), and when the status display in
+the top bar is clicked. The status display shows the location it found. A location can
+also be chosen for a single fax on the *Neues Fax* screen. For automatic selection, give
+every router its own address (its IP address), because `fritz.box` resolves to whichever
+router the current DNS server names. The journal and the transmission report record
+the location.
+
+Locations are stored in the INI file as the array `[locations]`. The first location is
+also written to `[sip]` and `[fax]`, so the command line tool uses it. A configuration
+without `[locations]` (for example one written for the command line tool) becomes the
+first location.
+
+**Phonebook.** The contacts come from the phonebooks of the FRITZ!Box, read over TR-064
+(`http://<router>:49000`, service `X_AVM-DE_OnTel`). That needs a FRITZ!Box user (System ›
+FRITZ!Box-Benutzer), not the IP phone credentials. Reading needs the right
+„Sprachnachrichten, Faxnachrichten, FRITZ!App Fon und Anrufliste“, saving contacts
+„FRITZ!Box Einstellungen“, and *Zugriff für Anwendungen zulassen* (Heimnetz › Netzwerk ›
+Netzwerkeinstellungen) has to be on, which is the default. The user is set per location
+(`phonebook_user`, `phonebook_password` in `[locations]`). The app reads the phonebook of
+the location it finds, at most every 30 minutes and on *Telefonbuch neu laden*, and keeps
+a copy in `contacts.json` next to `journal.json`, so the suggestions also work without a
+connection. A person with fax numbers is offered with those only; otherwise with their
+landline and other numbers. Mobile and internal numbers are left out. When a contact is
+changed, the app reads the entry from the router, replaces the name and that one number,
+and writes it back, so the entry's other numbers, e-mail addresses and speed dials stay.
+New contacts go to the main phonebook (ID 0) of the location found last.
+
+The app stores the SIP and phonebook passwords in the INI file. The colors follow
+the Sonara practice website (aubergine `#7a5a8b` on cream `#faf5f0`). The font list starts
+with DM Sans and falls back to the system font when DM Sans is not installed.
 
 ## Command line reference
 
@@ -269,6 +417,7 @@ src/core (static library faxwerk_core)
   transport/SipG711Transport   REGISTER -> INVITE -> RTP+FaxEngine -> BYE -> unregister
   FaxJob              rasterize -> transport -> outcome, overall timeout
 src/cli               faxwerk executable
+src/gui               desktop app (faxwerk_gui_lib + faxwerk-gui), German UI
 tests/                QtTest suites incl. MockFritzBox
 ```
 
@@ -290,6 +439,9 @@ upstream spandsp.
 | `tst_rtpsession` | accelerated pacing, gap concealment, late packets, SSRC change |
 | `tst_pdfrasterizer` | 3-page PDF from `QPdfWriter` → 3-page TIFF, 1728 px, 204×196 dpi, landscape rotation |
 | `tst_faxloopback` | two FaxEngines back to back: 3 pages with ECM, without ECM, and at V.17 |
+| `tst_guilogic` | outcome texts and severities, number cleanup, time formats, journal JSON roundtrip, recent recipients, locations in the INI file (with phonebook access) and migration from a CLI configuration |
+| `tst_contacts` | FRITZ!Box phonebook XML (fax numbers first, no mobile or internal numbers), search by name and by number in national or international form, entry editing that keeps the rest of the entry, the phonebook cache; reading, changing and adding entries against a TR-064 mock with digest authentication, wrong password, missing write right, unreachable router |
+| `tst_locationprobe` | location selection against several `MockFritzBox` instances: unreachable and wrong-password locations are skipped, list order wins, probes unregister again |
 | `tst_endtoend` | full `FaxJob` against `MockFritzBox` (401 on REGISTER, 407 on INVITE, independent digest check, ACK rules, duplicate 200 OK, RTP at 2 ms packets, BYE from the mock); T.38 re-INVITE → 488; wrong password; busy |
 
 ## Known limitations and risks
@@ -308,7 +460,12 @@ upstream spandsp.
 
 ## Licensing
 
-Faxwerk's own source code is not yet under a license. spandsp is LGPL-2.1 and is **linked
-dynamically**. Qt is used under the LGPL (dynamic linking). libtiff uses a BSD-style
-license. Faxwerk does not use PJSIP or any other GPL SIP stack; the SIP implementation is
-its own.
+Faxwerk is free software under the [GNU General Public License, version 3 or any later
+version](LICENSE) (`GPL-3.0-or-later`). Copyright © 2026 Daniel Schlegel.
+
+The libraries keep their own licenses: spandsp is LGPL-2.1 and Qt is used under the
+LGPL-3, both linked dynamically. libtiff uses a BSD-style license; the libtiff of the
+packages also brings jbigkit (GPL-2.0-or-later) and other libraries under free licenses.
+All of them can be combined with the GPL-3.0. The SIP implementation is Faxwerk's own.
+The packages include the license text (`LICENSE.txt` on Windows and macOS,
+`usr/share/doc/faxwerk/LICENSE` in the AppImage).

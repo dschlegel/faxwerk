@@ -9,12 +9,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 #   libtiff-tools                       - tiffinfo/tiffdump for debugging rasterizer output
 #   autoconf automake libtool ca-certificates
 #                                       - building upstream spandsp from GitHub
+#   curl                                - downloading linuxdeploy for the AppImage
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build git gdb pkg-config \
       qt6-base-dev qt6-pdf-dev libspandsp-dev libtiff-dev \
       qt6-qpa-plugins fonts-dejavu-core libtiff-tools \
-      autoconf automake libtool ca-certificates \
+      autoconf automake libtool ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 
 # The image ships the user "ubuntu" (uid 1000); scripts/dev.sh runs with the

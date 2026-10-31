@@ -132,6 +132,7 @@ void SipG711Transport::send(const FaxSendRequest &request)
         teardown();
     });
 
+    emit phaseChanged(FaxPhase::Registering);
     emit statusChanged(QStringLiteral("Registering at %1").arg(m_options.account.server));
     ua->start();
 }
@@ -156,6 +157,7 @@ void SipG711Transport::onRegistered()
     });
 
     m_callStarted = true;
+    emit phaseChanged(FaxPhase::Dialing);
     emit statusChanged(QStringLiteral("Registered, calling %1").arg(m_request.destination));
     if (!m_ua->call(m_request.destination, m_rtp->localPort())) {
         complete({FaxStatus::InternalError, QStringLiteral("cannot start call"), {}, 0});
@@ -171,6 +173,7 @@ void SipG711Transport::onCallEstablished(const AudioEndpointInfo &remote)
         teardown(); // aborted while ringing
         return;
     }
+    emit phaseChanged(FaxPhase::Connected);
     emit statusChanged(QStringLiteral("Connected, remote media %1:%2 (%3)")
                            .arg(remote.address.toString())
                            .arg(remote.port)
@@ -182,6 +185,8 @@ void SipG711Transport::onCallEstablished(const AudioEndpointInfo &remote)
     connect(m_engine.get(), &FaxEngine::logMessage, this, &FaxTransport::logMessage);
     connect(m_engine.get(), &FaxEngine::negotiated, this,
             [this](int bitRate, bool ecm, const QString &remoteIdent) {
+                emit negotiated(bitRate, ecm, remoteIdent);
+                emit phaseChanged(FaxPhase::Transferring);
                 emit statusChanged(QStringLiteral("Negotiated %1 bit/s%2%3")
                                        .arg(bitRate)
                                        .arg(ecm ? QStringLiteral(", ECM") : QString())
@@ -268,6 +273,7 @@ void SipG711Transport::teardown()
 
     if (!m_hangupSent && callActive()) {
         m_hangupSent = true;
+        emit phaseChanged(FaxPhase::HangingUp);
         emit statusChanged(QStringLiteral("Hanging up"));
         m_ua->hangup();
         return;

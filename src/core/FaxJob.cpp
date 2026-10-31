@@ -54,6 +54,7 @@ void FaxJob::start()
             return;
         }
 
+        emit phaseChanged(FaxPhase::Rendering);
         emit statusChanged(QStringLiteral("Rendering %1 document(s)").arg(m_config.pdfFiles.size()));
         const QString tiffPath = m_tempDir.filePath(QStringLiteral("fax.tif"));
         QString error;
@@ -71,6 +72,8 @@ void FaxJob::start()
             return;
         }
         connect(m_transport.get(), &FaxTransport::statusChanged, this, &FaxJob::statusChanged);
+        connect(m_transport.get(), &FaxTransport::phaseChanged, this, &FaxJob::phaseChanged);
+        connect(m_transport.get(), &FaxTransport::negotiated, this, &FaxJob::negotiated);
         connect(m_transport.get(), &FaxTransport::pageTransferred, this, &FaxJob::pageTransferred);
         connect(m_transport.get(), &FaxTransport::logMessage, this, &FaxJob::logMessage);
         connect(m_transport.get(), &FaxTransport::protocolTrace, this, &FaxJob::protocolTrace);

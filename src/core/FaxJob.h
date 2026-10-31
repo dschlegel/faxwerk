@@ -52,6 +52,8 @@ public:
 
 signals:
     void statusChanged(const QString &status);
+    void phaseChanged(faxwerk::FaxPhase phase);
+    void negotiated(int bitRate, bool ecm, const QString &remoteIdent);
     void pageTransferred(int pages, int total);
     void logMessage(const QString &message);
     void protocolTrace(bool outgoing, const QString &peer, const QByteArray &data);
