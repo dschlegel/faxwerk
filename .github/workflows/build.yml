@@ -4,7 +4,8 @@
 #   run as artifacts.
 #     Linux:   Faxwerk-<version>-x86_64.AppImage (+ .zsync)
 #     Windows: Faxwerk-<version>-windows-x64-setup.exe
-#     macOS:   Faxwerk-<version>-macos-arm64.dmg (ad-hoc signed, not notarized)
+#     macOS:   Faxwerk-<version>-macos-arm64.dmg and .pkg (ad-hoc signed /
+#              unsigned, not notarized)
 # - Tags "v*" (e.g. v0.2.0): additionally a GitHub release with all of them.
 #
 # AppImage update information (for AppImageUpdate): the AppImage points at

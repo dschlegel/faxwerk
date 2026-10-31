@@ -115,7 +115,7 @@ working tree, runs the tests and packages the result into `out/`:
 | Platform | Command | Result |
 |----------|---------|--------|
 | Windows | `scripts/package-windows.sh` (MSYS2 UCRT64 shell) | `Faxwerk-<version>-windows-x64-setup.exe` |
-| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` |
+| macOS | `scripts/package-macos.sh` | `Faxwerk-<version>-macos-<arch>.dmg` and `.pkg` |
 | Linux | `scripts/dev.sh appimage` (dev container) | `Faxwerk-<version>-x86_64.AppImage` |
 
 The version comes from `git describe`. Windows and macOS have no usable spandsp
@@ -176,7 +176,8 @@ brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf cmake
 scripts/package-macos.sh
 ```
 
-The result is `build/macos/dist/Faxwerk.app` and a disk image. `macdeployqt` copies Qt,
+The result is `build/macos/dist/Faxwerk.app`, a disk image and an installer package
+(`.pkg`, installs the app into `/Applications`). `macdeployqt` copies Qt,
 spandsp and libtiff into the bundle. The command line tool is inside the bundle at
 `Faxwerk.app/Contents/Helpers/faxwerk`. The bundle declares PDF as a document type
 ("Open with" in Finder). It also has the local network usage text that macOS 15 and
@@ -190,6 +191,11 @@ first start of a downloaded copy:
 2. Start it once. macOS refuses to open it.
 3. Go to *Systemeinstellungen › Datenschutz & Sicherheit* and choose *Dennoch öffnen*
    (on macOS 14 a right click on the app › *Öffnen* is enough).
+
+With the installer package (`.pkg`) it works the same way: macOS refuses to open the
+unsigned package, *Dennoch öffnen* in *Datenschutz & Sicherheit* allows it. The installed
+app then starts without a further warning, because the installer sets no quarantine
+flag. With a "Developer ID Installer" certificate, `PKG_SIGN_IDENTITY` signs the package.
 
 Alternatively remove the quarantine flag in the terminal:
 `xattr -dr com.apple.quarantine /Applications/Faxwerk.app`. A copy built on the Mac
