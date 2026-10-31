@@ -1,5 +1,7 @@
 #include "AppImageUpdater.h"
 
+#include "ProductInfo.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -49,7 +51,7 @@ QString lastStatusMessage(Updater &updater, const QString &previous = QString())
 #endif
 
 AppImageUpdater::AppImageUpdater(QObject *parent)
-    : QObject(parent)
+    : UpdateService(parent)
     , m_pollTimer(new QTimer(this))
 {
     m_pollTimer->setInterval(250);
@@ -226,11 +228,23 @@ void AppImageUpdater::finishUpdate()
 #endif
 }
 
-bool AppImageUpdater::launchNewVersion() const
+bool AppImageUpdater::launchNewVersion()
 {
     if (m_newPath.isEmpty())
         return false;
     return QProcess::startDetached(m_newPath, {});
+}
+
+QString AppImageUpdater::updateDescription() const
+{
+    return QStringLiteral("Die neue Version ersetzt die AppImage-Datei, aus der %1 gestartet wurde.")
+        .arg(QStringLiteral(FAXWERK_PRODUCT_NAME));
+}
+
+QString AppImageUpdater::launchQuestion() const
+{
+    return QStringLiteral("Die neue Version ist installiert. %1 jetzt neu starten?")
+        .arg(QStringLiteral(FAXWERK_PRODUCT_NAME));
 }
 
 } // namespace faxwerk::gui

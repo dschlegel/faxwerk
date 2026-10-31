@@ -12,6 +12,8 @@ add_library(faxwerk_gui_lib STATIC
     ContactsPage.h
     FritzPhonebook.cpp
     FritzPhonebook.h
+    GitHubReleaseUpdater.cpp
+    GitHubReleaseUpdater.h
     Journal.cpp
     Journal.h
     JournalPage.cpp
@@ -30,6 +32,8 @@ add_library(faxwerk_gui_lib STATIC
     SetupPage.h
     Theme.cpp
     Theme.h
+    UpdateService.cpp
+    UpdateService.h
     Widgets.cpp
     Widgets.h
 )
@@ -43,6 +47,12 @@ target_include_directories(faxwerk_gui_lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(faxwerk_gui_lib PUBLIC faxwerk_core Qt6::Widgets)
 target_compile_definitions(faxwerk_gui_lib PRIVATE QT_NO_CAST_FROM_ASCII)
 faxwerk_set_warnings(faxwerk_gui_lib)
+
+# Windows and macOS look for updates in the latest GitHub release of this
+# repository (GitHubReleaseUpdater). Empty: no update check.
+set(FAXWERK_UPDATE_REPOSITORY "dschlegel/faxwerk" CACHE STRING
+    "GitHub repository (owner/name) whose releases the desktop app offers as updates")
+target_compile_definitions(faxwerk_gui_lib PRIVATE FAXWERK_UPDATE_REPOSITORY="${FAXWERK_UPDATE_REPOSITORY}")
 
 # Self-update of the Linux AppImage with libappimageupdate (AppImageUpdate
 # project). The dev container builds it into /usr/local; see

@@ -26,7 +26,7 @@ class FaxJob;
 
 namespace faxwerk::gui {
 
-class AppImageUpdater;
+class UpdateService;
 class ContactsPage;
 class JournalPage;
 class SendingPage;
@@ -70,10 +70,11 @@ private:
     void updateContacts();
     void fetchPhonebook(const QString &locationId, bool force);
     void savePhonebookEntry(const Contact &original, const QString &name, const QString &number);
-    // AppImage self-update (Linux AppImage with libappimageupdate only).
+    // Update check: Linux AppImage, Windows and macOS (see UpdateService).
     void setUpUpdates(QHBoxLayout *bar);
     void installUpdate();
     void onUpdateFinished(bool ok, const QString &error);
+    void offerUpdateLaunch();
 
     std::unique_ptr<QSettings> m_ini;
     AppSettings m_settings;
@@ -99,7 +100,7 @@ private:
 
     QLabel *m_productName = nullptr;
     QPushButton *m_statusChip = nullptr;
-    AppImageUpdater *m_updater = nullptr;
+    UpdateService *m_updater = nullptr;
     QPushButton *m_updateChip = nullptr;
     QPointer<QProgressDialog> m_updateProgress;
     QString m_statusText; // the chip shows only its dot in narrow windows

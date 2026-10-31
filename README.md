@@ -179,7 +179,9 @@ scripts/package-macos.sh
 The result is `build/macos/dist/Faxwerk.app`, a disk image and an installer package
 (`.pkg`, installs the app into `/Applications`). `macdeployqt` copies Qt,
 spandsp and libtiff into the bundle. The command line tool is inside the bundle at
-`Faxwerk.app/Contents/Helpers/faxwerk`. The bundle declares PDF as a document type
+`Faxwerk.app/Contents/Helpers/faxwerk`; the installer package also puts a small
+`/usr/local/bin/faxwerk` script in place that starts it (an existing
+`/usr/local/bin/faxwerk` from elsewhere is left alone). The bundle declares PDF as a document type
 ("Open with" in Finder). It also has the local network usage text that macOS 15 and
 later show before the app may reach the router.
 
@@ -242,6 +244,32 @@ removes the old one and offers a restart. The dev container builds libappimageup
 from source into `/usr/local`; the CMake option `FAXWERK_APPIMAGEUPDATE` (`AUTO`, `ON`,
 `OFF`) controls whether it is used. Outside an AppImage (`$APPIMAGE` not set) the app
 does not look for updates.
+
+### Updates and releases
+
+The desktop app looks for a new version a few seconds after the start and then shows an
+"Update auf <version>" button in the top bar:
+
+| Platform | How |
+|----------|-----|
+| Linux AppImage | libappimageupdate, see above |
+| Windows | latest GitHub release: downloads `Faxwerk-<version>-windows-x64-setup.exe` and starts it |
+| macOS | latest GitHub release: downloads the `.pkg` (otherwise the `.dmg`) and opens it |
+
+Windows and macOS ask `https://api.github.com/repos/<repository>/releases/latest` and
+compare the tag (`v0.2.0`) with the version of the build, i.e. `project(... VERSION)` in
+`CMakeLists.txt`. The download is checked against the size and the SHA-256 digest GitHub
+lists for the file. The repository is the CMake cache variable `FAXWERK_UPDATE_REPOSITORY`
+(default `dschlegel/faxwerk`, empty disables the check). The environment variable
+`FAXWERK_NO_UPDATE_CHECK` switches the check off on all platforms. The repository must be
+public; drafts and pre-releases are not offered.
+
+A release:
+
+1. Raise `VERSION` in `CMakeLists.txt` (e.g. to `0.2.0`) and merge to `main`.
+2. Tag that commit with the same version and push the tag:
+   `git tag v0.2.0 && git push origin v0.2.0`.
+3. The GitHub workflow builds all packages and publishes them as release `v0.2.0`.
 
 ### Building by hand
 

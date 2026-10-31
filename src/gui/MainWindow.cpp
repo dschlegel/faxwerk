@@ -1,12 +1,12 @@
 #include "MainWindow.h"
 
-#include "AppImageUpdater.h"
 #include "ContactsPage.h"
 #include "JournalPage.h"
 #include "Messages.h"
 #include "SendingPage.h"
 #include "SetupPage.h"
 #include "Theme.h"
+#include "UpdateService.h"
 #include "Widgets.h"
 
 #include "FaxJob.h"
@@ -593,9 +593,9 @@ void MainWindow::onJobFinished()
 
 void MainWindow::setUpUpdates(QHBoxLayout *bar)
 {
-    if (!AppImageUpdater::isSupported())
+    m_updater = UpdateService::create(this);
+    if (!m_updater)
         return;
-    m_updater = new AppImageUpdater(this);
 
     // Shown left of the status chip once the update server has a new version.
     m_updateChip = new QPushButton(QStringLiteral("Update verfügbar"));
@@ -606,30 +606,40 @@ void MainWindow::setUpUpdates(QHBoxLayout *bar)
     bar->insertWidget(bar->indexOf(m_statusChip), m_updateChip);
     connect(m_updateChip, &QPushButton::clicked, this, &MainWindow::installUpdate);
 
-    connect(m_updater, &AppImageUpdater::checkFinished, this, [this](bool available, const QString &error) {
+    connect(m_updater, &UpdateService::checkFinished, this, [this](bool available, const QString &error) {
         if (!error.isEmpty())
             qInfo("Update check failed: %s", qUtf8Printable(error));
+        const QString version = m_updater->availableVersion();
+        m_updateChip->setText(version.isEmpty() ? QStringLiteral("Update verfügbar")
+                                                : QStringLiteral("Update auf %1").arg(version));
         m_updateChip->setVisible(available);
     });
-    connect(m_updater, &AppImageUpdater::progress, this, [this](double fraction, const QString &) {
+    connect(m_updater, &UpdateService::progress, this, [this](double fraction, const QString &) {
         if (m_updateProgress)
             m_updateProgress->setValue(qRound(fraction * 1000));
     });
-    connect(m_updater, &AppImageUpdater::updateFinished, this, &MainWindow::onUpdateFinished);
+    connect(m_updater, &UpdateService::updateFinished, this, &MainWindow::onUpdateFinished);
 
     // Look for a new version shortly after the start, without delaying it.
-    QTimer::singleShot(5000, m_updater, &AppImageUpdater::checkForUpdate);
+    QTimer::singleShot(5000, m_updater, &UpdateService::checkForUpdate);
 }
 
 void MainWindow::installUpdate()
 {
     if (!m_updater || m_updater->isBusy())
         return;
+    if (m_updater->isReady()) {
+        offerUpdateLaunch();
+        return;
+    }
+    const QString version = m_updater->availableVersion();
+    const QString headline = version.isEmpty()
+        ? QStringLiteral("Eine neue Version von %1 ist verfügbar.").arg(QStringLiteral(FAXWERK_PRODUCT_NAME))
+        : QStringLiteral("%1 %2 ist verfügbar (installiert: %3).")
+              .arg(QStringLiteral(FAXWERK_PRODUCT_NAME), version, QStringLiteral(FAXWERK_VERSION));
     const auto answer = QMessageBox::question(
         this, QStringLiteral("Update verfügbar"),
-        QStringLiteral("Eine neue Version von %1 ist verfügbar. Jetzt herunterladen und installieren?\n\n"
-                       "Die neue Version ersetzt die AppImage-Datei, aus der %1 gestartet wurde.")
-            .arg(QStringLiteral(FAXWERK_PRODUCT_NAME)),
+        QStringLiteral("%1 Jetzt herunterladen und installieren?\n\n%2").arg(headline, m_updater->updateDescription()),
         QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
     if (answer != QMessageBox::Yes)
         return;
@@ -657,25 +667,28 @@ void MainWindow::onUpdateFinished(bool ok, const QString &error)
                              QStringLiteral("Die neue Version konnte nicht installiert werden.\n\n%1").arg(error));
         return;
     }
-    m_updateChip->hide();
+    offerUpdateLaunch();
+}
 
+void MainWindow::offerUpdateLaunch()
+{
+    // Until the new version is started, the button offers it again.
+    m_updateChip->setText(QStringLiteral("Update bereit"));
+    m_updateChip->show();
     if (busy()) {
-        QMessageBox::information(this, QStringLiteral("Update installiert"),
-                                 QStringLiteral("Die neue Version ist installiert und wird beim nächsten Start von %1 "
-                                                "verwendet.")
-                                     .arg(QStringLiteral(FAXWERK_PRODUCT_NAME)));
+        // Do not interrupt the fax.
+        QMessageBox::information(this, QStringLiteral("Update bereit"),
+                                 QStringLiteral("Die neue Version ist heruntergeladen. Sie kann nach dem Senden "
+                                                "über den Knopf „Update bereit“ gestartet werden."));
         return;
     }
-    const auto answer = QMessageBox::question(
-        this, QStringLiteral("Update installiert"),
-        QStringLiteral("Die neue Version ist installiert. %1 jetzt neu starten?").arg(QStringLiteral(FAXWERK_PRODUCT_NAME)),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+    const auto answer = QMessageBox::question(this, QStringLiteral("Update bereit"), m_updater->launchQuestion(),
+                                              QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
     if (answer != QMessageBox::Yes || busy())
         return;
     if (!m_updater->launchNewVersion()) {
-        QMessageBox::warning(this, QStringLiteral("Neustart fehlgeschlagen"),
-                             QStringLiteral("Die neue Version konnte nicht gestartet werden:\n%1")
-                                 .arg(m_updater->newAppImagePath()));
+        QMessageBox::warning(this, QStringLiteral("Start fehlgeschlagen"),
+                             QStringLiteral("Die neue Version konnte nicht gestartet werden."));
         return;
     }
     close();

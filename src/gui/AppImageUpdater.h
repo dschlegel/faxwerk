@@ -1,7 +1,6 @@
 #pragma once
 
-#include <QObject>
-#include <QString>
+#include "UpdateService.h"
 
 #include <memory>
 
@@ -20,7 +19,7 @@ namespace faxwerk::gui {
 // Only available in Linux builds with libappimageupdate (FAXWERK_APPIMAGEUPDATE)
 // and only when the program runs from an AppImage ($APPIMAGE is set).
 // Everywhere else isSupported() is false and the other functions do nothing.
-class AppImageUpdater : public QObject
+class AppImageUpdater : public UpdateService
 {
     Q_OBJECT
 
@@ -32,24 +31,18 @@ public:
     // The AppImage file the program was started from, or empty.
     static QString appImagePath();
 
-    bool isBusy() const { return m_checking || m_updater != nullptr; }
-
-    // Asks the update server in the background; emits checkFinished().
-    void checkForUpdate();
-    // Downloads the new version next to the current AppImage; emits progress()
-    // while running and updateFinished() at the end. On success the old file
-    // is removed and newAppImagePath() is the file to restart.
-    void startUpdate();
+    bool isBusy() const override { return m_checking || m_updater != nullptr; }
+    void checkForUpdate() override;
+    // Downloads the new version next to the current AppImage. On success the
+    // old file is removed and newAppImagePath() is the file to restart.
+    void startUpdate() override;
     QString newAppImagePath() const { return m_newPath; }
+    bool isReady() const override { return !m_newPath.isEmpty(); }
+    // Starts the new AppImage.
+    bool launchNewVersion() override;
 
-    // Starts the new AppImage. The caller then closes the application.
-    bool launchNewVersion() const;
-
-signals:
-    // error is empty when the check worked.
-    void checkFinished(bool updateAvailable, const QString &error);
-    void progress(double fraction, const QString &message);
-    void updateFinished(bool ok, const QString &error);
+    QString updateDescription() const override;
+    QString launchQuestion() const override;
 
 private:
     void poll();
