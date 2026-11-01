@@ -91,6 +91,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libtiff
             mingw-w64-ucrt-x86_64-qt6-base
             mingw-w64-ucrt-x86_64-qt6-pdf
+            mingw-w64-ucrt-x86_64-qtkeychain-qt6
 
       - name: Install Inno Setup
         shell: pwsh
@@ -118,7 +119,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install dependencies
-        run: brew install qt libtiff jpeg-turbo autoconf automake libtool ninja pkgconf
+        run: brew install qt qtkeychain libtiff jpeg-turbo autoconf automake libtool ninja pkgconf
 
       - uses: actions/cache@v4
         with:

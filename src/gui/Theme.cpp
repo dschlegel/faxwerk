@@ -14,6 +14,7 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QScopedValueRollback>
+#include <QSet>
 #include <QStyleFactory>
 #include <QStyleHints>
 #include <QWidget>
@@ -23,143 +24,6 @@ namespace faxwerk::gui {
 namespace {
 
 constexpr char kThemedStyleProperty[] = "faxwerkThemedStyle";
-
-ThemeColors makeLight()
-{
-    ThemeColors c;
-    c.window = QColor(0xfa, 0xf5, 0xf0);
-    c.surface = QColor(0xff, 0xff, 0xff);
-    c.text = QColor(0x1f, 0x1d, 0x24);
-    c.muted = QColor(0x6b, 0x60, 0x75);
-    c.accentText = QColor(0x4f, 0x36, 0x61);
-    c.deep = QColor(0x4f, 0x36, 0x61);
-    c.onDark = QColor(0xff, 0xff, 0xff);
-    c.onDarkMuted = QColor(0xe2, 0xd2, 0xec);
-    c.lilac = QColor(0xeb, 0xe0, 0xf0);
-    c.lilacHover = QColor(0xe2, 0xd2, 0xec);
-    c.lilacSoft = QColor(0xf5, 0xec, 0xf2);
-    c.border = QColor(0xe2, 0xd2, 0xec);
-    c.divider = QColor(0xef, 0xe6, 0xf3);
-    c.scroll = QColor(0xd9, 0xcf, 0xe0);
-    c.primary = QColor(0x7a, 0x5a, 0x8b);
-    c.primaryHover = QColor(0x6a, 0x4a, 0x7b);
-    c.primaryPressed = QColor(0x4f, 0x36, 0x61);
-    c.primaryDisabled = QColor(0xcb, 0xbc, 0xd3);
-    c.primaryDisabledText = QColor(0xff, 0xff, 0xff);
-    c.onPrimary = QColor(0xff, 0xff, 0xff);
-    c.link = QColor(0x6a, 0x4a, 0x7b);
-    c.focus = QColor(0x1f, 0x1d, 0x24);
-    c.focusBorder = QColor(0x4f, 0x36, 0x61);
-    c.dashed = QColor(0xb9, 0xa0, 0xc9);
-    c.disabledBg = QColor(0xf7, 0xf2, 0xf5);
-    c.disabledText = QColor(0xa9, 0x9f, 0xb1);
-    c.navDisabled = QColor(0xb3, 0xa8, 0xbb);
-    c.pillBg = QColor(0xff, 0xff, 0xff);
-    c.pillText = QColor(0x4f, 0x36, 0x61);
-    c.okBg = QColor(0xe4, 0xf1, 0xea);
-    c.okText = QColor(0x1f, 0x5c, 0x41);
-    c.warnBg = QColor(0xfb, 0xee, 0xe4);
-    c.warnText = QColor(0x8a, 0x3f, 0x0c);
-    c.failBg = QColor(0xf8, 0xe1, 0xe1);
-    c.failText = QColor(0x8e, 0x26, 0x26);
-    c.success = QColor(0x2f, 0x7d, 0x5b);
-    c.warning = QColor(0x9a, 0x4a, 0x12);
-    c.error = QColor(0x8e, 0x26, 0x26);
-    c.searching = QColor(0xb9, 0xa0, 0xc9);
-    return c;
-}
-
-ThemeColors makeDark()
-{
-    ThemeColors c;
-    c.window = QColor(0x17, 0x13, 0x1c);
-    c.surface = QColor(0x22, 0x1c, 0x29);
-    c.text = QColor(0xf1, 0xec, 0xf4);
-    c.muted = QColor(0xa4, 0x97, 0xae);
-    c.accentText = QColor(0xd9, 0xc6, 0xe6);
-    c.deep = QColor(0x2c, 0x21, 0x38);
-    c.onDark = QColor(0xff, 0xff, 0xff);
-    c.onDarkMuted = QColor(0xc8, 0xb8, 0xd4);
-    c.lilac = QColor(0x3a, 0x2d, 0x47);
-    c.lilacHover = QColor(0x45, 0x36, 0x54);
-    c.lilacSoft = QColor(0x2e, 0x25, 0x37);
-    c.border = QColor(0x3a, 0x2f, 0x45);
-    c.divider = QColor(0x34, 0x2a, 0x3d);
-    c.scroll = QColor(0x4a, 0x3d, 0x55);
-    c.primary = QColor(0x9d, 0x7b, 0xb3);
-    c.primaryHover = QColor(0xb0, 0x92, 0xc4);
-    c.primaryPressed = QColor(0x86, 0x68, 0x9c);
-    c.primaryDisabled = QColor(0x4b, 0x3d, 0x57);
-    c.primaryDisabledText = QColor(0xc8, 0xb8, 0xd4);
-    c.onPrimary = QColor(0xff, 0xff, 0xff);
-    c.link = QColor(0xc9, 0xb0, 0xda);
-    c.focus = QColor(0xf1, 0xec, 0xf4);
-    c.focusBorder = QColor(0xd9, 0xc6, 0xe6);
-    c.dashed = QColor(0x6b, 0x56, 0x80);
-    c.disabledBg = QColor(0x2a, 0x23, 0x30);
-    c.disabledText = QColor(0x6f, 0x63, 0x78);
-    c.navDisabled = QColor(0x5f, 0x54, 0x68);
-    c.pillBg = QColor(0xe9, 0xdc, 0xf2);
-    c.pillText = QColor(0x2c, 0x21, 0x38);
-    c.okBg = QColor(0x1b, 0x33, 0x28);
-    c.okText = QColor(0x8f, 0xd5, 0xad);
-    c.warnBg = QColor(0x3a, 0x28, 0x18);
-    c.warnText = QColor(0xf2, 0xb2, 0x7a);
-    c.failBg = QColor(0x3d, 0x1d, 0x21);
-    c.failText = QColor(0xf2, 0xa0, 0xa0);
-    c.success = QColor(0x5c, 0xc0, 0x8f);
-    c.warning = QColor(0xe3, 0x9a, 0x5c);
-    c.error = QColor(0xec, 0x7f, 0x7f);
-    c.searching = QColor(0x8e, 0x74, 0xa3);
-    return c;
-}
-
-ThemeColors makeContrast()
-{
-    // Variant C: as much contrast as possible, borders that stay visible,
-    // and disabled text that is still readable.
-    ThemeColors c;
-    c.window = QColor(0x0b, 0x0a, 0x0d);
-    c.surface = QColor(0x16, 0x13, 0x1a);
-    c.text = QColor(0xff, 0xff, 0xff);
-    c.muted = QColor(0xc4, 0xb9, 0xcd);
-    c.accentText = QColor(0xec, 0xdf, 0xf6);
-    c.deep = QColor(0x1f, 0x17, 0x27);
-    c.onDark = QColor(0xff, 0xff, 0xff);
-    c.onDarkMuted = QColor(0xdd, 0xd0, 0xe8);
-    c.lilac = QColor(0x2d, 0x24, 0x36);
-    c.lilacHover = QColor(0x3a, 0x2f, 0x45);
-    c.lilacSoft = QColor(0x24, 0x1d, 0x2b);
-    c.border = QColor(0x6a, 0x5a, 0x7a);
-    c.divider = QColor(0x4a, 0x3e, 0x56);
-    c.scroll = QColor(0x6a, 0x5a, 0x7a);
-    c.primary = QColor(0xc9, 0xa8, 0xe0);
-    c.primaryHover = QColor(0xd9, 0xbf, 0xeb);
-    c.primaryPressed = QColor(0xb8, 0x93, 0xd1);
-    c.primaryDisabled = QColor(0x3a, 0x2f, 0x45);
-    c.primaryDisabledText = QColor(0xc4, 0xb9, 0xcd);
-    c.onPrimary = QColor(0x1a, 0x12, 0x20);
-    c.link = QColor(0xe0, 0xc8, 0xf0);
-    c.focus = QColor(0xff, 0xff, 0xff);
-    c.focusBorder = QColor(0xff, 0xff, 0xff);
-    c.dashed = QColor(0x9a, 0x84, 0xb0);
-    c.disabledBg = QColor(0x1a, 0x16, 0x1e);
-    c.disabledText = QColor(0x8f, 0x84, 0x99);
-    c.navDisabled = QColor(0x7a, 0x6f, 0x84);
-    c.pillBg = QColor(0xff, 0xff, 0xff);
-    c.pillText = QColor(0x1f, 0x17, 0x27);
-    c.okBg = QColor(0x0f, 0x2b, 0x1d);
-    c.okText = QColor(0xa6, 0xf0, 0xc4);
-    c.warnBg = QColor(0x33, 0x20, 0x0d);
-    c.warnText = QColor(0xff, 0xc5, 0x8f);
-    c.failBg = QColor(0x3a, 0x12, 0x15);
-    c.failText = QColor(0xff, 0xb3, 0xb3);
-    c.success = QColor(0x6f, 0xe0, 0xa5);
-    c.warning = QColor(0xff, 0xad, 0x66);
-    c.error = QColor(0xff, 0x8a, 0x8a);
-    c.searching = QColor(0xa9, 0x8b, 0xc4);
-    return c;
-}
 
 const QHash<QString, QColor ThemeColors::*> &roles()
 {
@@ -205,6 +69,62 @@ const QHash<QString, QColor ThemeColors::*> &roles()
         {QStringLiteral("searching"), &ThemeColors::searching},
     };
     return map;
+}
+
+// Reads the [light], [dark] and [contrast] sections of colors.ini: lines
+// "name = #rrggbb", comments after ";". Unknown names, colors that cannot be
+// read and roles a section leaves out are reported in errors.
+QHash<QString, ThemeColors> parseColorFile(const QString &text, QStringList *errors)
+{
+    QHash<QString, ThemeColors> sets;
+    QHash<QString, QSet<QString>> seen;
+    QString section;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    for (int i = 0; i < lines.size(); ++i) {
+        const QString line = lines.at(i).section(QLatin1Char(';'), 0, 0).trimmed();
+        if (line.isEmpty())
+            continue;
+        if (line.startsWith(QLatin1Char('[')) && line.endsWith(QLatin1Char(']'))) {
+            section = line.mid(1, line.size() - 2).trimmed();
+            sets[section];
+            continue;
+        }
+        const QString name = line.section(QLatin1Char('='), 0, 0).trimmed();
+        const QString value = line.section(QLatin1Char('='), 1).trimmed();
+        const auto role = roles().constFind(name);
+        const QColor color(value);
+        if (section.isEmpty() || role == roles().constEnd() || !value.startsWith(QLatin1Char('#'))
+            || !color.isValid()) {
+            errors->append(QStringLiteral("colors.ini:%1: %2").arg(i + 1).arg(lines.at(i).trimmed()));
+            continue;
+        }
+        sets[section].*(*role) = color;
+        seen[section].insert(name);
+    }
+    for (const QString &name : {QStringLiteral("light"), QStringLiteral("dark"), QStringLiteral("contrast")}) {
+        for (auto it = roles().constBegin(); it != roles().constEnd(); ++it) {
+            if (!seen.value(name).contains(it.key()))
+                errors->append(QStringLiteral("colors.ini: [%1] has no %2").arg(name, it.key()));
+        }
+    }
+    return sets;
+}
+
+const QHash<QString, ThemeColors> &colorSets()
+{
+    static const QHash<QString, ThemeColors> sets = [] {
+        QFile file(QStringLiteral(":/faxwerk/colors.ini"));
+        QStringList errors;
+        QHash<QString, ThemeColors> parsed;
+        if (file.open(QIODevice::ReadOnly))
+            parsed = parseColorFile(QString::fromUtf8(file.readAll()), &errors);
+        else
+            errors.append(QStringLiteral("colors.ini is missing from the resources"));
+        for (const QString &error : std::as_const(errors))
+            qWarning("%s", qUtf8Printable(error));
+        return parsed;
+    }();
+    return sets;
 }
 
 struct State
@@ -336,20 +256,27 @@ void apply()
 
 const ThemeColors &lightColors()
 {
-    static const ThemeColors c = makeLight();
+    static const ThemeColors c = colorSets().value(QStringLiteral("light"));
     return c;
 }
 
 const ThemeColors &darkColors()
 {
-    static const ThemeColors c = makeDark();
+    static const ThemeColors c = colorSets().value(QStringLiteral("dark"));
     return c;
 }
 
 const ThemeColors &contrastColors()
 {
-    static const ThemeColors c = makeContrast();
+    static const ThemeColors c = colorSets().value(QStringLiteral("contrast"));
     return c;
+}
+
+QStringList checkColorFile(const QString &text)
+{
+    QStringList errors;
+    parseColorFile(text, &errors);
+    return errors;
 }
 
 const ThemeColors &colors()

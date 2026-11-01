@@ -10,11 +10,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 #   autoconf automake libtool ca-certificates
 #                                       - building upstream spandsp from GitHub
 #   curl                                - downloading linuxdeploy for the AppImage
+#   qtkeychain-qt6-dev                  - passwords in the system keychain (FAXWERK_KEYCHAIN)
 # libappimageupdate is built below.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build git gdb pkg-config \
-      qt6-base-dev qt6-pdf-dev libspandsp-dev libtiff-dev \
+      qt6-base-dev qt6-pdf-dev libspandsp-dev libtiff-dev qtkeychain-qt6-dev \
       qt6-qpa-plugins fonts-dejavu-core libtiff-tools \
       autoconf automake libtool ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*

@@ -64,7 +64,8 @@ QIcon dotIcon(const QColor &color)
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_ini(AppSettings::openDefault())
-    , m_settings(AppSettings::load(*m_ini))
+    , m_passwords(PasswordStore::createSystem())
+    , m_settings(AppSettings::load(*m_ini, m_passwords.get()))
     , m_journal(Journal::defaultPath())
     , m_contacts(ContactStore::defaultPath())
 {
@@ -73,6 +74,16 @@ MainWindow::MainWindow(QWidget *parent)
     setMinimumSize(720, 560);
     m_journal.load();
     m_contacts.load();
+
+    // Passwords of an older version or of a hand-written file move from the
+    // INI file into the keychain.
+    if (m_passwords && m_settings.passwordsInFile) {
+        QString error;
+        if (m_settings.save(*m_ini, m_passwords.get(), &error))
+            m_settings.passwordsInFile = false;
+        else
+            qWarning("Passwords stay in the settings file: %s", qPrintable(error));
+    }
 
     auto *central = new QWidget;
     auto *layout = new QVBoxLayout(central);
@@ -236,7 +247,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_checkedPhonebooks.insert(id, contacts);
     });
     connect(m_setup, &SetupPage::saved, this, [this](const AppSettings &settings) {
-        settings.save(*m_ini);
+        saveSettings(settings);
         const AppSettings previous = m_settings;
         applySettings(settings);
         m_contacts.prunePhonebooks(previous, settings);
@@ -690,6 +701,18 @@ void MainWindow::setUpMenus()
     // Moved into the application menu on macOS.
     addAction(file, QStringLiteral("Über %1").arg(QStringLiteral(FAXWERK_PRODUCT_NAME)), QKeySequence(),
               [this] { showAbout(); }, QAction::AboutRole);
+}
+
+void MainWindow::saveSettings(const AppSettings &settings)
+{
+    QString error;
+    if (settings.save(*m_ini, m_passwords.get(), &error) || !m_passwords || m_keychainWarned)
+        return;
+    m_keychainWarned = true;
+    QMessageBox::warning(this, QStringLiteral("Kein Schlüsselbund"),
+                         QStringLiteral("Die Kennwörter ließen sich nicht im Schlüsselbund des Systems speichern "
+                                        "(%1). Sie stehen deshalb lesbar in der Einstellungsdatei %2.")
+                             .arg(error, m_ini->fileName()));
 }
 
 void MainWindow::showAbout()

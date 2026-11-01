@@ -29,6 +29,22 @@ find_package(TIFF REQUIRED)
 find_package(SpanDSP REQUIRED)
 include(SpanDspApi)
 
+# Passwords go into the keychain of the operating system with QtKeychain
+# (Windows Credential Manager, macOS Keychain, Secret Service or KWallet on
+# Linux). Without it they are stored in the INI file.
+set(FAXWERK_KEYCHAIN "AUTO" CACHE STRING
+    "Store passwords in the system keychain with QtKeychain (AUTO, ON, OFF)")
+set_property(CACHE FAXWERK_KEYCHAIN PROPERTY STRINGS AUTO ON OFF)
+set(FAXWERK_HAVE_KEYCHAIN OFF)
+if(NOT FAXWERK_KEYCHAIN STREQUAL "OFF")
+    find_package(Qt6Keychain CONFIG QUIET)
+    if(Qt6Keychain_FOUND)
+        set(FAXWERK_HAVE_KEYCHAIN ON)
+    elseif(FAXWERK_KEYCHAIN STREQUAL "ON")
+        message(FATAL_ERROR "QtKeychain for Qt 6 not found (FAXWERK_KEYCHAIN=ON)")
+    endif()
+endif()
+
 function(faxwerk_set_warnings target)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /permissive-)
@@ -58,3 +74,8 @@ endif()
 
 message(STATUS "Product name:   ${FAXWERK_PRODUCT_NAME}")
 message(STATUS "spandsp:        ${SpanDSP_LIBRARY} (version ${SpanDSP_VERSION})")
+if(FAXWERK_HAVE_KEYCHAIN)
+    message(STATUS "Passwords:      system keychain (QtKeychain ${Qt6Keychain_VERSION})")
+else()
+    message(STATUS "Passwords:      INI file (QtKeychain not used)")
+endif()

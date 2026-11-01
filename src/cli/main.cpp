@@ -9,6 +9,7 @@
 #include "Terminal.h"
 
 #include "FaxJob.h"
+#include "config/PasswordStore.h"
 #include "document/FaxTiff.h"
 #include "document/PdfRasterizer.h"
 #include "sip/SipUserAgent.h"
@@ -101,7 +102,23 @@ std::unique_ptr<QSettings> openSettings(const QCommandLineParser &parser, const 
                                        QStringLiteral(FAXWERK_PRODUCT_NAME), QStringLiteral("faxwerk"));
 }
 
-// Command line > environment > INI file > defaults.
+// The password the desktop app keeps in the keychain for the location that
+// [sip] mirrors.
+QString keychainPassword(QSettings &ini)
+{
+    const QString location = ini.value(QStringLiteral("sip/location")).toString();
+    const std::unique_ptr<PasswordStore> store = PasswordStore::createSystem();
+    if (location.isEmpty() || !store)
+        return QString();
+    QString password;
+    QString error;
+    const PasswordStore::Result result = store->read(PasswordStore::sipKey(location), &password, &error);
+    if (result == PasswordStore::Result::Failed || result == PasswordStore::Result::Unavailable)
+        printErr(QStringLiteral("warning: cannot read the password from the keychain: %1").arg(error));
+    return password;
+}
+
+// Command line > environment > INI file > keychain > defaults.
 bool buildAccount(const QCommandLineParser &parser, const SipOptionSet &opts, QSettings &ini,
                   SipAccount *account, QString *error)
 {
@@ -143,6 +160,8 @@ bool buildAccount(const QCommandLineParser &parser, const SipOptionSet &opts, QS
         account->password = qEnvironmentVariable("FAXWERK_PASSWORD");
     else
         account->password = ini.value(QStringLiteral("sip/password")).toString();
+    if (account->password.isEmpty())
+        account->password = keychainPassword(ini);
 
     if (account->user.isEmpty()) {
         *error = QStringLiteral("no SIP user name given (--user or [sip] user=)");
@@ -151,7 +170,7 @@ bool buildAccount(const QCommandLineParser &parser, const SipOptionSet &opts, QS
     if (account->password.isEmpty() && stdinIsTerminal())
         account->password = readPassword(QStringLiteral("SIP password for %1: ").arg(account->user));
     if (account->password.isEmpty()) {
-        *error = QStringLiteral("no SIP password given (FAXWERK_PASSWORD, --password or [sip] password=)");
+        *error = QStringLiteral("no SIP password given (FAXWERK_PASSWORD, --password, [sip] password= or the keychain)");
         return false;
     }
     return true;
