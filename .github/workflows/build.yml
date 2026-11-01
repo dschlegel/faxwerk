@@ -37,7 +37,7 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # git describe needs the tags for the version
 
@@ -62,7 +62,7 @@ jobs:
           FAXWERK_UPDATE_INFORMATION: ${{ vars.FAXWERK_UPDATE_INFORMATION }}
         run: scripts/dev.sh appimage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Faxwerk-linux
           path: out/*
@@ -74,7 +74,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -97,7 +97,7 @@ jobs:
         shell: pwsh
         run: choco install innosetup --no-progress -y
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: build/spandsp/prefix
           key: spandsp-windows-ucrt64-${{ env.SPANDSP_REF }}
@@ -105,7 +105,7 @@ jobs:
       - name: Build, test and package
         run: scripts/package-windows.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Faxwerk-windows
           path: out/*
@@ -114,14 +114,14 @@ jobs:
   macos:
     runs-on: macos-15 # Apple Silicon; the app needs macOS 15 or newer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Install dependencies
         run: brew install qt qtkeychain libtiff jpeg-turbo autoconf automake libtool ninja pkgconf
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: build/spandsp/prefix
           key: spandsp-macos15-arm64-${{ env.SPANDSP_REF }}
@@ -129,7 +129,7 @@ jobs:
       - name: Build, test and package
         run: scripts/package-macos.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Faxwerk-macos
           path: out/*
@@ -142,7 +142,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: Faxwerk-*
           path: out
