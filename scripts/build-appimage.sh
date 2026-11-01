@@ -85,14 +85,20 @@ fi
 mkdir -p "$OUT_DIR"
 cd "$OUT_DIR"
 rm -f "$OUTPUT" "$OUTPUT.zsync"
+# Two steps: deploy first, then package. In between the AppDir gets a PNG
+# .DirIcon, because appimagetool (since its build of 2026-10-31) no longer
+# accepts an AppDir whose only top-level icon is the SVG.
 "linuxdeploy-$ARCH.AppImage" \
     --appdir "$APPDIR" \
     --executable "$APPDIR/usr/bin/faxwerk-gui" \
     --executable "$APPDIR/usr/bin/faxwerk" \
     --desktop-file "$APPDIR/usr/share/applications/faxwerk.desktop" \
     --icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/faxwerk.svg" \
-    --plugin qt \
-    --output appimage
+    --icon-file "$APPDIR/usr/share/icons/hicolor/256x256/apps/faxwerk.png" \
+    --plugin qt
+rm -f "$APPDIR/.DirIcon"
+cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/faxwerk.png" "$APPDIR/.DirIcon"
+"linuxdeploy-$ARCH.AppImage" --appdir "$APPDIR" --output appimage
 
 if [ "${FAXWERK_APPIMAGEUPDATE:-ON}" != OFF ] && ! compgen -G "$APPDIR/usr/lib/libappimageupdate.so*" >/dev/null; then
     echo "libappimageupdate was not bundled into the AppImage" >&2
