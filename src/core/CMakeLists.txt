@@ -11,6 +11,8 @@ add_library(faxwerk_core STATIC
     document/PdfRasterizer.h
     fax/FaxEngine.cpp
     fax/FaxEngine.h
+    fax/HeaderText.cpp
+    fax/HeaderText.h
     rtp/AudioPort.h
     rtp/G711.cpp
     rtp/G711.h

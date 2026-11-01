@@ -1,5 +1,7 @@
 #include "FaxEngine.h"
 
+#include "HeaderText.h"
+
 #include <QMetaObject>
 
 #include <algorithm>
@@ -171,7 +173,7 @@ bool FaxEngine::start(const QString &tiffPath, QString *error)
     const QByteArray ident = m_options.stationId.left(20).toLatin1();
     if (!ident.isEmpty())
         t30_set_tx_ident(t30, ident.constData());
-    const QByteArray header = m_options.headerInfo.left(50).toLatin1();
+    const QByteArray header = toFaxHeaderCharset(m_options.headerInfo.left(50));
     if (!header.isEmpty())
         t30_set_tx_page_header_info(t30, header.constData());
 

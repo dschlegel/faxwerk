@@ -455,7 +455,9 @@ faxwerk render --pdf <file> [--pdf ...] --out <file.tif> [--dither]
   the password (without echo). `--password` is visible in the process list, so use the
   environment variable. Passwords are never logged.
 - `--ident` is the station ID (TSI, at most 20 characters) and `--header` the page header line
-  (at most 50 characters).
+  (at most 50 characters). The header line may contain umlauts and ß. Faxwerk converts it to
+  the character set of spandsp's header font (code page 437), and prints characters that set
+  lacks, such as €, as `?`.
 - `--max-rate 9600` (default) uses V.29/V.27ter, and `14400` also allows V.17. Over IP the
   lower rate is usually more robust.
 
@@ -517,6 +519,7 @@ upstream spandsp.
 | `tst_digestauth` | RFC 2617 vector (Mufasa → `6629fae4…`), nonce count, no-qop, MD5-sess, RFC 7616 SHA-256 |
 | `tst_sdp` | offer (PCMA, PCMU, ptime 20, no telephone-event), answer selection, T.38 detection |
 | `tst_g711` | A-law/µ-law roundtrip tolerance over the full 16-bit range |
+| `tst_headertext` | header line in the header font's character set (code page 437): umlauts and ß, combining diaeresis, unmappable characters |
 | `tst_rtpsession` | accelerated pacing, gap concealment, late packets, SSRC change |
 | `tst_pdfrasterizer` | 3-page PDF from `QPdfWriter` → 3-page TIFF, 1728 px, 204×196 dpi, landscape rotation |
 | `tst_faxloopback` | two FaxEngines back to back: 3 pages with ECM, without ECM, and at V.17 |
